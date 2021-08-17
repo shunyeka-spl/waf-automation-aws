@@ -1,0 +1,32 @@
+Example 1
+
+SELECT c_ip, COUNT(c_ip) AS Frequency FROM "CloudFrontLogsTimeSeriesDb-xBECBoapfI2U"."RealtimeLogsTable-7MYNnsSemTCE" GROUP BY c_ip ORDER BY Frequency DESC
+
+
+
+Example 2
+
+SELECT  c_ip,cs_host,cs_uri_stem,x_host_header,
+COUNT(c_ip) AS Frequency 
+FROM "CloudFrontLogsTimeSeriesDb-xBECBoapfI2U"."RealtimeLogsTable-7MYNnsSemTCE" 
+GROUP BY c_ip,cs_host,cs_uri_stem,x_host_header
+ORDER BY Frequency DESC
+
+
+
+Example 3
+SELECT  c_ip,cs_host,cs_uri_stem,x_host_header,
+COUNT(c_ip) AS Frequency 
+FROM (SELECT * FROM "CloudFrontLogsTimeSeriesDb-xBECBoapfI2U"."RealtimeLogsTable-7MYNnsSemTCE" WHERE time between ago(30s) and now())
+GROUP BY c_ip,cs_host,cs_uri_stem,x_host_header
+ORDER BY Frequency DESC
+
+
+
+Example 4
+SELECT  c_ip,cs_host,cs_uri_stem,x_host_header,
+COUNT(c_ip) AS Frequency 
+FROM "CloudFrontLogsTimeSeriesDb-xBECBoapfI2U"."RealtimeLogsTable-7MYNnsSemTCE"
+WHERE time between ago(15m) and now()
+GROUP BY c_ip,cs_host,cs_uri_stem,x_host_header
+ORDER BY Frequency DESC
