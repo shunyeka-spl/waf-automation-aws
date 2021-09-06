@@ -8,4 +8,5 @@ s3_prefix = "sam-app"
 region = "eu-west-1"
 profile = "ssdev-1"
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "KinesisStreamShards=\"1\" RealtimeLogsSamplingPercentage=\"5\""
+parameter_overrides = "KinesisStreamShards=\"1\" RealtimeLogsSamplingPercentage=\"100\""
+confirm_changeset = true

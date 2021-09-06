@@ -1,0 +1,20 @@
+{
+    "Records": [
+        {
+            "kinesis": {
+                "kinesisSchemaVersion": "1.0",
+                "partitionKey": "5d966910-0881-4f25-97ec-11cfb9deffd4",
+                "sequenceNumber": "49621051836022161861504853276312719006768006605203046402",
+                "data": "MTYyOTgxNjAwNy43MjAJNDkuMzcuNzYuNjgJMC4wMDMJMzA0CTM4NglHRVQJaHR0cAlkMXkzODk3cG82MzRhZS5jbG91ZGZyb250Lm5ldAkvCTU4NQlDQ1U1MC1DMQl0MURhVTdzX3VtVFp0TGlSQUk3MWt3OEUtcGJkZlR0VS10T3lVZ3VwcXpNVW5xbjNxX2pLelE9PQlkMXkzODk3cG82MzRhZS5jbG91ZGZyb250Lm5ldAkwLjAwMwlIVFRQLzEuMQlJUHY0CU1vemlsbGEvNS4wJTIwKFdpbmRvd3MlMjBOVCUyMDEwLjA7JTIwV2luNjQ7JTIweDY0KSUyMEFwcGxlV2ViS2l0LzUzNy4zNiUyMChLSFRNTCwlMjBsaWtlJTIwR2Vja28pJTIwQ2hyb21lLzkyLjAuNDUxNS4xNTklMjBTYWZhcmkvNTM3LjM2CS0JLQktCUhpdAktCS0JLQlIaXQJLQktCS0JLQktCS0JNTc1NzcJSGl0CUlOCWd6aXAsJTIwZGVmbGF0ZQl0ZXh0L2h0bWwsYXBwbGljYXRpb24veGh0bWwreG1sLGFwcGxpY2F0aW9uL3htbDtxPTAuOSxpbWFnZS9hdmlmLGltYWdlL3dlYnAsaW1hZ2UvYXBuZywqLyo7cT0wLjgsYXBwbGljYXRpb24vc2lnbmVkLWV4Y2hhbmdlO3Y9YjM7cT0wLjkJKglIb3N0OmQxeTM4OTdwbzYzNGFlLmNsb3VkZnJvbnQubmV0JTBBQ29ubmVjdGlvbjprZWVwLWFsaXZlJTBBVXBncmFkZS1JbnNlY3VyZS1SZXF1ZXN0czoxJTBBVXNlci1BZ2VudDpNb3ppbGxhLzUuMCUyMChXaW5kb3dzJTIwTlQlMjAxMC4wOyUyMFdpbjY0OyUyMHg2NCklMjBBcHBsZVdlYktpdC81MzcuMzYlMjAoS0hUTUwsJTIwbGlrZSUyMEdlY2tvKSUyMENocm9tZS85Mi4wLjQ1MTUuMTU5JTIwU2FmYXJpLzUzNy4zNiUwQUFjY2VwdDp0ZXh0L2h0bWwsYXBwbGljYXRpb24veGh0bWwreG1sLGFwcGxpY2F0aW9uL3htbDtxPTAuOSxpbWFnZS9hdmlmLGltYWdlL3dlYnAsaW1hZ2UvYXBuZywqLyo7cT0wLjgsYXBwbGljYXRpb24vc2lnbmVkLWV4Y2hhbmdlO3Y9YjM7cT0wLjklMEFBY2NlcHQtRW5jb2Rpbmc6Z3ppcCwlMjBkZWZsYXRlJTBBQWNjZXB0LUxhbmd1YWdlOmVuLUlOLGVuO3E9MC45LGhpLUlOO3E9MC44LGhpO3E9MC43LGVuLUdCO3E9MC42LGVuLVVTO3E9MC41JTBBSWYtTm9uZS1NYXRjaDolMjIyYWE2LTVjOTZkYzYwNTRlNDAtZ3ppcCUyMiUwQUlmLU1vZGlmaWVkLVNpbmNlOkZyaSwlMjAxMyUyMEF1ZyUyMDIwMjElMjAwOTo0OTo1NCUyMEdNVCUwQQlIb3N0JTBBQ29ubmVjdGlvbiUwQVVwZ3JhZGUtSW5zZWN1cmUtUmVxdWVzdHMlMEFVc2VyLUFnZW50JTBBQWNjZXB0JTBBQWNjZXB0LUVuY29kaW5nJTBBQWNjZXB0LUxhbmd1YWdlJTBBSWYtTm9uZS1NYXRjaCUwQUlmLU1vZGlmaWVkLVNpbmNlJTBBCTkK",
+                "approximateArrivalTimestamp": 1629816013.249,
+            },
+            "eventSource": "aws:kinesis",
+            "eventVersion": "1.0",
+            "eventID": "shardId-000000000000:49621051836022161861504853276312719006768006605203046402",
+            "eventName": "aws:kinesis:record",
+            "invokeIdentityArn": "arn:aws:iam::430781331376:role/sam-app-LogProcessorRole-2NG87K247NS4",
+            "awsRegion": "eu-west-1",
+            "eventSourceARN": "arn:aws:kinesis:eu-west-1:430781331376:stream/sam-app-CloudFrontLogStream-rWQY9PL8d33L",
+        }
+    ]
+}

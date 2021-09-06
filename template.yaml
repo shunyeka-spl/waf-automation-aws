@@ -9,7 +9,7 @@ Parameters:
   RealtimeLogsSamplingPercentage:
     Description: The sampling rate (expressed as integer or float value between 1-100) to use for the Real-time Logs Configuration. This value will be set in the Real-time Logs Configuration. Defaults to 5 (5%) sampling rate.
     Type: Number
-    Default: 5
+    Default: 100
     MinValue: 1
     MaxValue: 100
 Resources:
@@ -69,7 +69,15 @@ Resources:
                 - timestream:DescribeEndpoints
               Resource:
                 - '*'
-
+            - Effect: Allow
+              Action: 
+                - lambda:ListFunctions
+                - lambda:InvokeFunction
+                - lambda:GetFunction
+                - lambda:InvokeAsync
+              Resource: 
+                - '*'
+                
   CustomResourceHelper:
     Type: AWS::Serverless::Function
     Properties:
@@ -99,6 +107,104 @@ Resources:
               Resource: 
                 - '*'
   
+  HostProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: host_processor.lambda_handler
+      Runtime: python3.8
+      CodeUri: ./HostProcessor
+      FunctionName: HostProcessor
+      Description: Lambda to Query TimestreamDB and Block IP when reached threshold
+      MemorySize: 128
+      Timeout: 60
+      Environment:
+        Variables:
+          CONFIGURATION_DYNAMODB: TestConfigurationDynamoDB
+          BLOCKLIST_DYNAMODB: BlockListDynamoDB
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: 
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutDestination
+                - logs:PutLogEvents
+              Resource:
+                - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*'
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+                - xray:GetSamplingRules
+                - xray:GetSamplingTargets
+              Resource: 
+                - '*'
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+                - xray:GetSamplingRules
+                - xray:GetSamplingTargets
+              Resource: 
+                - '*'
+            - Effect: Allow
+              Action: 
+                - timestream:CancelQuery
+                - timestream:DescribeDatabase
+                - timestream:DescribeEndpoints
+                - timestream:DescribeTable
+                - timestream:ListDatabases
+                - timestream:ListMeasures
+                - timestream:ListTables
+                - timestream:ListTagsForResource
+                - timestream:Select
+                - timestream:SelectValues
+              Resource: 
+                - '*'
+            - Effect: Allow
+              Action:
+                - wafv2:*
+              Resource: 
+                - "*"
+            - Effect: Allow
+              Action:
+                - dynamodb:*
+              Resource: 
+                - "*"
+  
+  TestConfigurationDynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: address
+        AttributeType: S
+      KeySchema:
+      - AttributeName: address
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 1
+      TableName: "TestConfigurationDynamoDB"
+      
+  BlockListDynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: cs_host
+        AttributeType: S
+      - AttributeName: time
+        AttributeType: S
+      KeySchema:
+      - AttributeName: cs_host
+        KeyType: HASH
+      - AttributeName: time
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: "BlockListDynamoDB"
+            
   CloudFrontRealtimeLogConfig:
     Type: AWS::CloudFront::RealtimeLogConfig
     Properties:

@@ -14,13 +14,13 @@ session = boto3.Session()
 #  - Set RequestTimeout to 20 seconds .
 #  - Set max connections to 5000 or higher.
 timestream_write = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
-
 # TABLE_NAME from CloudFormation is set in format of DATABASE|TABLE, so we need to split it
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-table.html
 TABLE_NAME_CF= os.environ['TABLE_NAME']
 fields = TABLE_NAME_CF.split('|')
 DATABASE_NAME = fields[0]
 TABLE_NAME = fields[1]
+lambda_client = boto3.client('lambda')
 
 # Loads a json configuration object that defines the data type mappings for each of the valid values of Realtime Log Fields
 FIELD_DATA_MAPPINGS = {}
@@ -29,6 +29,14 @@ with open('./config/cf_realtime_log_field_mappings.json') as f:
     FIELD_DATA_MAPPINGS = data['cf_realtime_log_fields']
     # Debug
     #print('Configured field data type mappings: ', json.dumps(FIELD_DATA_MAPPINGS))
+
+def invokeHostProcessor(cs_host):
+        payload = {}
+        payload['cs_host'] = cs_host
+
+        lambda_client.invoke(FunctionName='HostProcessor',
+                InvocationType='Event',
+                Payload=json.dumps(payload))
 
 # Utility function for parsing the header fields
 def parse_headers(headers, header_type):
@@ -52,25 +60,38 @@ def parse_headers(headers, header_type):
     return output
 
 def write_batch_timestream(records, record_counter):
+    print("Printing records")
+    print(records)
+    print("Printing record_counter",record_counter)
+    # print()
     try:
         result = timestream_write.write_records(DatabaseName = DATABASE_NAME, TableName = TABLE_NAME, Records = records, CommonAttributes = {})
         print('Processed [%d] records. WriteRecords Status: [%s]' % (record_counter, result['ResponseMetadata']['HTTPStatusCode']))
+
     except Exception as e:
-        print(records)
+        # print(records)
+        print(e)
         raise Exception('There was an error writing records to Amazon Timestream when inserting records')
+        
 
 def lambda_handler(event, context):
+    
     records = []
     record_counter = 0
+    print("Printing Events")
+    print(event)
+    unique_cs_hosts=set()
  
     for record in event['Records']:
     
         # Extracting the record data in bytes and base64 decoding it
         payload_in_bytes = base64.b64decode(record['kinesis']['data'])
-
+        print("Printing payload_in_bytes")
+        print(payload_in_bytes)
         # Converting the bytes payload to string
         payload = "".join(map(chr, payload_in_bytes))
- 
+        print("Printing payload")
+        print(payload) 
         # dictionary where all the field and record value pairing will end up
         payload_dict = {}
         
@@ -103,6 +124,10 @@ def lambda_handler(event, context):
         dimensions_list = []
         for field, value in payload_dict.items():
             field_name = field.replace('-','_') # replace dashes in field names with underscore to adhere to Timsestream requirements
+            
+            if field_name == 'cs_host':
+                unique_cs_hosts.add(str(value))
+            
             dimensions_list.append(
                 { 'Name': field_name, 'Value': str(value) }
             )
@@ -116,13 +141,21 @@ def lambda_handler(event, context):
             'TimeUnit': 'SECONDS'
         }
         records.append(record)
+        print("Printing record inside handler")
+        print(record)
         record_counter = record_counter + 1
 
-        if(len(records) == 100):
+        if(len(records) == 100): 
             write_batch_timestream(records, record_counter)
             records = []
 
     if(len(records) != 0):
         write_batch_timestream(records, record_counter)
+    
+    for cs_host in unique_cs_hosts:
+        print("Invoke Host Processor",cs_host)
+        invokeHostProcessor(cs_host)
+    
+    
 
     print('Successfully processed {} records.'.format(len(event['Records'])))
