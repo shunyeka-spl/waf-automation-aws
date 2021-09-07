@@ -2,7 +2,7 @@ import boto3
 import time
 import os
 import datetime
-
+# TODO: separate Ipv4 and IPv6; Timestream : c_ip_version 
 # TODO: test ipset_name and ipset_ip. Later get these in ENV variables during production
 ipset_name = 'test-ip-set-name'
 ipset_id = '5511edd2-e521-4a31-a20b-7cac41be38e1'

@@ -120,8 +120,8 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          CONFIGURATION_DYNAMODB: WAFConfigTable
-          BLOCKLIST_DYNAMODB: WAFBlockHistoryTable
+          CONFIGURATION_DYNAMODB: !Ref WAFConfigTable
+          BLOCKLIST_DYNAMODB: !Ref WAFBlockHistoryTable
       Policies:
         - Version: 2012-10-17
           Statement:

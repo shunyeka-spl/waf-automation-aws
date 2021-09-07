@@ -127,8 +127,9 @@ def lambda_handler(event, context):
             
             dimensions_list.append(
                 { 'Name': field_name, 'Value': str(value) }
-            )        
-        host_details = f"{payload_dict['cs_host']},{payload_dict['x_host_header']}"
+            )   
+        print(payload_dict)
+        host_details = f"{payload_dict['cs-host']},{payload_dict['x-host-header']}"
         unique_cs_hosts.add(host_details)
 
 
