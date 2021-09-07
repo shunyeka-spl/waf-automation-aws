@@ -12,6 +12,7 @@ Parameters:
     Default: 100
     MinValue: 1
     MaxValue: 100
+  # TODO: Add parameter for default ip set id.
 Resources:
   LogProcessor:
     Type: AWS::Serverless::Function
@@ -119,8 +120,8 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          CONFIGURATION_DYNAMODB: TestConfigurationDynamoDB
-          BLOCKLIST_DYNAMODB: BlockListDynamoDB
+          CONFIGURATION_DYNAMODB: WAFConfigTable
+          BLOCKLIST_DYNAMODB: WAFBlockHistoryTable
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -173,37 +174,41 @@ Resources:
               Resource: 
                 - "*"
   
-  TestConfigurationDynamoDB:
+  WAFConfigTable:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
-      - AttributeName: address
+      - AttributeName: distribution
+        AttributeType: S
+      - AttributeName: host
         AttributeType: S
       KeySchema:
-      - AttributeName: address
+      - AttributeName: distribution
         KeyType: HASH
+      - AttributeName: host
+        KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 1
-      TableName: "TestConfigurationDynamoDB"
+      TableName: "waf-config"
       
-  BlockListDynamoDB:
+  WAFBlockHistoryTable:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
-      - AttributeName: cs_host
+      - AttributeName: distribution
         AttributeType: S
-      - AttributeName: time
+      - AttributeName: host
         AttributeType: S
       KeySchema:
-      - AttributeName: cs_host
+      - AttributeName: distribution
         KeyType: HASH
-      - AttributeName: time
+      - AttributeName: host
         KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
-      TableName: "BlockListDynamoDB"
+      TableName: "waf-block-history"
             
   CloudFrontRealtimeLogConfig:
     Type: AWS::CloudFront::RealtimeLogConfig

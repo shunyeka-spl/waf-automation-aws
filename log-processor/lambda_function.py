@@ -30,9 +30,9 @@ with open('./config/cf_realtime_log_field_mappings.json') as f:
     # Debug
     #print('Configured field data type mappings: ', json.dumps(FIELD_DATA_MAPPINGS))
 
-def invokeHostProcessor(cs_host):
+def invoke_host_processor(host_details):
         payload = {}
-        payload['cs_host'] = cs_host
+        payload['host_details'] = host_details
 
         lambda_client.invoke(FunctionName='HostProcessor',
                 InvocationType='Event',
@@ -121,16 +121,16 @@ def lambda_handler(event, context):
             del payload_dict['cs-header-names'] # remove this line and uncomment below to include cs-header-names as a list
             #payload_dict['cs-header-names'] = parse_headers(payload_dict['cs-header-names'], 'cs-header-names')
 
-        dimensions_list = []
+        dimensions_list = []        
         for field, value in payload_dict.items():
-            field_name = field.replace('-','_') # replace dashes in field names with underscore to adhere to Timsestream requirements
-            
-            if field_name == 'cs_host':
-                unique_cs_hosts.add(str(value))
+            field_name = field.replace('-','_') # replace dashes in field names with underscore to adhere to Timsestream requirements                        
             
             dimensions_list.append(
                 { 'Name': field_name, 'Value': str(value) }
-            )
+            )        
+        host_details = f"{payload_dict['cs_host']},{payload_dict['x_host_header']}"
+        unique_cs_hosts.add(host_details)
+
 
         record = {
             'Dimensions': dimensions_list,
@@ -152,9 +152,9 @@ def lambda_handler(event, context):
     if(len(records) != 0):
         write_batch_timestream(records, record_counter)
     
-    for cs_host in unique_cs_hosts:
-        print("Invoke Host Processor",cs_host)
-        invokeHostProcessor(cs_host)
+    for host_details in unique_cs_hosts:
+        print("Invoke Host Processor",host_details)
+        invoke_host_processor(host_details)
     
     
 
