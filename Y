@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "sam1"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1tmajekod6iek"
+s3_prefix = "sam1"
+region = "us-east-1"
+profile = "ssdev-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "KinesisStreamShards=\"4\" RealtimeLogsSamplingPercentage=\"100\""
