@@ -1,0 +1,71 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:DELETE",
+                "apigateway:GET",
+                "apigateway:PATCH",
+                "apigateway:POST",
+                "apigateway:PUT",
+                "cloudformation:CreateChangeSet",
+                "cloudformation:CreateStack",
+                "cloudformation:DeleteStack",
+                "cloudformation:DescribeChangeSet",
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DescribeStacks",
+                "cloudformation:ExecuteChangeSet",
+                "cloudformation:GetTemplateSummary",
+                "cloudformation:ListStackResources",
+                "cloudformation:UpdateStack",
+                "iam:AttachRolePolicy",
+                "iam:CreateRolePolicy",
+                "iam:DeleteRolePolicy",
+                "iam:DetachRolePolicy",
+                "iam:GetRole",
+                "iam:GetRolePolicy",
+                "iam:PassRole",
+                "iam:PutRolePolicy",
+                "iam:TagRole"
+            ],
+            "Resource": [
+                "arn:aws:cloudformation:*:480805696776:stack/*",
+                "arn:aws:apigateway:*::*",
+                "arn:aws:iam::480805696776:role/*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:DELETE",
+                "apigateway:PUT",
+                "apigateway:PATCH",
+                "apigateway:POST",
+                "apigateway:GET"
+            ],
+            "Resource": "arn:aws:apigateway:*::*"
+        },
+        {
+            "Sid": "VisualEditor2",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CreateChangeSet",
+                "cloudfront:CreateRealtimeLogConfig",
+                "cloudfront:DeleteRealtimeLogConfig",
+                "cloudfront:GetRealtimeLogConfig",
+                "cloudfront:ListDistributionsByRealtimeLogConfig",
+                "cloudfront:ListRealtimeLogConfigs",
+                "cloudfront:UpdateRealtimeLogConfig",
+                "kinesis:*",
+                "lambda:*",
+                "logs:*",
+                "s3:*",
+                "timestream:*"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

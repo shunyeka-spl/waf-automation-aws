@@ -166,7 +166,6 @@
         "cloudformation:UpdateStack",
         "cloudformation:ListStacks",
         "iam:AttachRolePolicy",
-        "iam:CreateRolePolicy",
         "iam:DeleteRolePolicy",
         "iam:DetachRolePolicy",
         "iam:GetRole",
