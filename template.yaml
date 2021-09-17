@@ -12,7 +12,7 @@ Parameters:
     Default: 100
     MinValue: 1
     MaxValue: 100
-  # TODO: Add parameter for default ip set id.
+
 Resources:
   LogProcessor:
     Type: AWS::Serverless::Function
@@ -72,13 +72,10 @@ Resources:
                 - '*'
             - Effect: Allow
               Action: 
-                - lambda:ListFunctions
                 - lambda:InvokeFunction
-                - lambda:GetFunction
-                - lambda:InvokeAsync
               Resource: 
-                - '*'
-                
+                - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:*'
+
   CustomResourceHelper:
     Type: AWS::Serverless::Function
     Properties:
@@ -107,7 +104,7 @@ Resources:
                 - xray:GetSamplingTargets
               Resource: 
                 - '*'
-  
+
   HostProcessor:
     Type: AWS::Serverless::Function
     Properties:
@@ -120,8 +117,13 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
+          LOG_LVL: '20'
           CONFIGURATION_DYNAMODB: !Ref WAFConfigTable
           BLOCKLIST_DYNAMODB: !Ref WAFBlockHistoryTable
+          TIMESTREAM_DB_NAME: !Ref CloudFrontLogsTimeSeriesDb
+          TIMESTREAM_TABLE_NAME: !GetAtt RealtimeLogsTable.Name
+          IPV4SET_DETAILS: !Ref WAFIpSetIpV4
+          IPV6SET_DETAILS: !Ref WAFIpSetIpV6
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -142,38 +144,33 @@ Resources:
               Resource: 
                 - '*'
             - Effect: Allow
-              Action:
-                - xray:PutTraceSegments
-                - xray:PutTelemetryRecords
-                - xray:GetSamplingRules
-                - xray:GetSamplingTargets
-              Resource: 
-                - '*'
-            - Effect: Allow
               Action: 
-                - timestream:CancelQuery
-                - timestream:DescribeDatabase
                 - timestream:DescribeEndpoints
-                - timestream:DescribeTable
-                - timestream:ListDatabases
-                - timestream:ListMeasures
-                - timestream:ListTables
-                - timestream:ListTagsForResource
-                - timestream:Select
-                - timestream:SelectValues
               Resource: 
                 - '*'
             - Effect: Allow
               Action:
-                - wafv2:*
-              Resource: 
-                - "*"
+                - timestream:Select
+              Resource:
+                - !Sub 'arn:${AWS::Partition}:timestream:${AWS::Region}:${AWS::AccountId}:database/${CloudFrontLogsTimeSeriesDb}/table/${RealtimeLogsTable.Name}'
             - Effect: Allow
               Action:
-                - dynamodb:*
+                - wafv2:GetIPSet
+                - wafv2:UpdateIPSet
               Resource: 
-                - "*"
-  
+                - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:global/ipset/*/${WAFIpSetIpV4.Id}'
+                - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:global/ipset/*/${WAFIpSetIpV6.Id}'
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WAFConfigTable}'
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: 
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WAFBlockHistoryTable}'
+
   WAFConfigTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -191,7 +188,7 @@ Resources:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 1
       TableName: "waf-config"
-      
+
   WAFBlockHistoryTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -209,7 +206,7 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TableName: "waf-block-history"
-            
+
   CloudFrontRealtimeLogConfig:
     Type: AWS::CloudFront::RealtimeLogConfig
     Properties:
@@ -289,13 +286,13 @@ Resources:
                   - kinesis:DescribeStream
                 Resource: 
                   - !GetAtt CloudFrontLogStream.Arn    
-  
+
   LogProcessorLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/aws/lambda/${LogProcessor}'
       RetentionInDays: 30
- 
+
   CloudFrontLogStream:
     Type: AWS::Kinesis::Stream
     Properties:
@@ -303,10 +300,10 @@ Resources:
       StreamEncryption:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
-  
+
   CloudFrontLogsTimeSeriesDb:
     Type: AWS::Timestream::Database
-  
+
   RealtimeLogsTable:
     Type: AWS::Timestream::Table
     Properties:
@@ -314,7 +311,132 @@ Resources:
       RetentionProperties:
         MemoryStoreRetentionPeriodInHours: 24
         MagneticStoreRetentionPeriodInDays: 7
-          
+
+  # WAF Resources, Will only work in region us-east-1
+  WAFIpSetIpV4:
+    Type: 'AWS::WAFv2::IPSet'
+    Properties:
+      Description: CloudFront blocked IpV4 addresses
+      Name: IPV4SET
+      Scope: CLOUDFRONT
+      IPAddressVersion: IPV4
+      Addresses:
+        - 10.0.0.0/32   # A dummy IPV4 Private Ip
+
+  WAFIpSetIpV6:
+    Type: 'AWS::WAFv2::IPSet'
+    Properties:
+      Description: CloudFront blocked IpV6 addresses
+      Name: IPV6SET
+      Scope: CLOUDFRONT
+      IPAddressVersion: IPV6
+      Addresses:
+        - fd4b:9821:be17:8c1e:0000:0000:0000:0000/128    # A dummy IPV6 Private Ip
+
+  WAFWebACL:
+    DependsOn:
+      - WAFIpSetIpV4
+      - WAFIpSetIpV6
+    Type: 'AWS::WAFv2::WebACL'
+    Properties:
+      Name: WebACL-Cloudfront
+      Scope: CLOUDFRONT
+      Description: Blocks IP When requests greater than threshold
+      DefaultAction:
+        Allow: {}  # allow all
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: WebACLMetricForCloudfront
+      CustomResponseBodies: # Response bodies when block action is applied
+        CustomResponseBodyKey1:
+          ContentType: TEXT_PLAIN
+          Content: this is a plain text
+        CustomResponseBodyKey2:
+          ContentType: APPLICATION_JSON
+          Content: '{"jsonfieldname": "jsonfieldvalue"}'
+        CustomResponseBodyKey3:
+          ContentType: TEXT_HTML
+          Content: <html>HTML text content</html>
+      Rules:
+        # - Name: RuleWithAWSManagedRules
+        #   Priority: 0
+        #   OverrideAction:
+        #     Count: {}
+        #   VisibilityConfig:
+        #     SampledRequestsEnabled: true
+        #     CloudWatchMetricsEnabled: true
+        #     MetricName: RuleWithAWSManagedRulesMetric
+        #   Statement:
+        #     ManagedRuleGroupStatement:
+        #       VendorName: AWS
+        #       Name: AWSManagedRulesCommonRuleSet
+        #       ExcludedRules: []
+        # - Name: BlockXssAttack
+        #   Priority: 1
+        #   Action:
+        #     Block:
+        #       CustomResponse:
+        #         ResponseCode: 503
+        #         CustomResponseBodyKey: CustomResponseBodyKey1
+        #         ResponseHeaders:
+        #           - Name: BlockActionHeader1Name
+        #             Value: BlockActionHeader1Value
+        #           - Name: BlockActionHeader2Name
+        #             Value: BlockActionHeader2Value
+        #   VisibilityConfig:
+        #     SampledRequestsEnabled: true
+        #     CloudWatchMetricsEnabled: true
+        #     MetricName: BlockXssAttackMetric
+        #   Statement:
+        #     XssMatchStatement:
+        #       FieldToMatch:
+        #         AllQueryArguments: {}
+        #       TextTransformations:
+        #         - Priority: 1
+        #           Type: NONE
+
+        - Name: test-rule-for-ip-set
+          Priority: 0
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV4.Arn
+          Action:
+            Block: {}   # Block all
+              # block with msg
+              # CustomResponse:
+              #   ResponseCode: 503
+              #   CustomResponseBodyKey: CustomResponseBodyKey1
+              #   ResponseHeaders:
+              #     - Name: BlockActionHeader1Name
+              #       Value: BlockActionHeader1Value
+              #     - Name: BlockActionHeader2Name
+              #       Value: BlockActionHeader2Value
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: test-rule-for-ip-set
+        - Name: testip6
+          Priority: 1
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV6.Arn
+          Action:
+            Block: {}
+              # block with msg
+              # CustomResponse:
+              #   ResponseCode: 503
+              #   CustomResponseBodyKey: CustomResponseBodyKey1
+              #   ResponseHeaders:
+              #     - Name: BlockActionHeader1Name
+              #       Value: BlockActionHeader1Value
+              #     - Name: BlockActionHeader2Name
+              #       Value: BlockActionHeader2Value
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: testip6
+
 Outputs:
   CloudWatchMetricsUrl:
     Description: Link to the Amazon CloudWatch namespace where the custom metrics are published by the solution.
