@@ -204,6 +204,18 @@
         "lambda:*",
         "logs:*",
         "s3:*",
+        "wafv2:*",
+        "waf:*",                
+        "cloudfront:GetCloudFrontOriginAccessIdentityConfig",
+        "cloudfront:ListCloudFrontOriginAccessIdentities",        
+        "cloudfront:GetOriginRequestPolicyConfig",                
+        "cloudfront:GetDistribution",        
+        "cloudfront:GetOriginRequestPolicy",
+        "cloudfront:ListDistributions",
+        "cloudfront:GetCloudFrontOriginAccessIdentity",
+        "cloudfront:UpdateDistribution",
+        "cloudfront:UpdateCloudFrontOriginAccessIdentity",
+        "cloudfront:GetDistributionConfig",
         "timestream:*"
       ],
       "Resource": "*"
