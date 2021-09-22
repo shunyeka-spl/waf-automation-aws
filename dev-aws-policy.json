@@ -216,7 +216,22 @@
         "cloudfront:UpdateDistribution",
         "cloudfront:UpdateCloudFrontOriginAccessIdentity",
         "cloudfront:GetDistributionConfig",
-        "timestream:*"
+        "timestream:*",
+        "cloudfront:CreateOriginRequestPolicy",
+        "cloudfront:AssociateAlias",
+        "cloudfront:CreateDistribution",
+        "cloudfront:CreateCloudFrontOriginAccessIdentity",
+        "cloudfront:CreateCachePolicy",
+        "cloudfront:CreateRealtimeLogConfig",
+        "route53:GetHostedZone",
+        "route53:ListResourceRecordSets",
+        "route53:ChangeResourceRecordSets",
+        "route53:ListResourceRecordSets",
+        "route53:GetHostedZoneCount",
+        "route53:ListHostedZonesByName",
+        "route53:ListHostedZones",
+        "acm:DescribeCertificate",
+        "acm:ListCertificates"
       ],
       "Resource": "*"
     }
