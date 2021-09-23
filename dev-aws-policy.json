@@ -218,6 +218,7 @@
         "cloudfront:GetDistributionConfig",
         "timestream:*",
         "cloudfront:CreateOriginRequestPolicy",
+        "cloudfront:TagResource",
         "cloudfront:AssociateAlias",
         "cloudfront:CreateDistribution",
         "cloudfront:CreateCloudFrontOriginAccessIdentity",
