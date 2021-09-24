@@ -95,23 +95,40 @@ def get_ipset_lock_token(client: Callable, ipset_name: str, ipset_id: str) -> Tu
     return ip_set['LockToken'], ip_set['IPSet']['Addresses']
 
 
-def process_row(column_info: List[str], row: Dict[str, Any], threshold: int) -> Tuple[Optional[str], Optional[str]]:
+def process_row(column_info: List[str], row: Dict[str, Any], threshold: int, host: str, distribution: str) -> Tuple[Optional[str], Optional[str]]:
     '''if 'no of request' > 'threshold' then return the ip and type of ip'''
 
     row_dict = {column["Name"]:value["ScalarValue"] for column, value in zip(column_info, row["Data"])}
 
-    if int(row_dict["Frequency"]) > threshold:
-        logger.debug("Offending Ip %s found in row %s", row_dict["c_ip"], str(row_dict))
-        return row_dict["c_ip"], row_dict["c_ip_version"]
-    return None, None
+    # Check the IP Frequency for the Given Host and Distribution
+    if row_dict["cs_host"] == host and row_dict["x_host_header"] == distribution:
 
-def process_host(host: str, duration: str, threshold: int, offending_ips: IpDetails) -> IpDetails:
+        # If Frequency greater than Threshold, return the IP and IP Version
+        if int(row_dict["Frequency"]) > threshold:
+            logger.debug("Offending Ip %s found in row %s", row_dict["c_ip"], str(row_dict))
+            return row_dict["c_ip"], row_dict["c_ip_version"]
+    else:
+        msg = {
+        "Host": {
+            "Received": host,
+            "TimeStream": row_dict["cs_host"],
+            },
+        "Distribution": {
+            "Received": distribution,
+            "Timestream": row_dict["x_host_header"],
+            },
+        }
+        logger.debug("Host, Distribution Does not match: %s", msg)
+        return None, None
+
+
+def process_host(host: str, distribution: str, duration: str, threshold: int, offending_ips: IpDetails) -> IpDetails:
     """Query Timestream db for logs and return ips where count greater than threshold"""
 
     query_client = boto3.client('timestream-query')
     paginator = query_client.get_paginator('query')
 
-    query = f'''SELECT c_ip, cs_host, cs_uri_stem, x_host_header, c_ip_version, COUNT(c_ip) AS Frequency FROM "{TIMESTREAM_DB_NAME}"."{TIMESTREAM_TABLE_NAME}"  WHERE cs_host='{host}' AND time between ago({duration}) and now() GROUP BY c_ip,cs_host,cs_uri_stem,c_ip_version,x_host_header ORDER BY Frequency DESC '''
+    query: str = f'''SELECT c_ip, cs_host, cs_uri_stem, x_host_header, c_ip_version, COUNT(c_ip) AS Frequency FROM "{TIMESTREAM_DB_NAME}"."{TIMESTREAM_TABLE_NAME}"  WHERE cs_host='{host}' AND time between ago({duration}) and now() GROUP BY c_ip,cs_host,cs_uri_stem,c_ip_version,x_host_header ORDER BY Frequency DESC '''
     logger.info("Query String = %s", query)
 
     try:
@@ -121,7 +138,7 @@ def process_host(host: str, duration: str, threshold: int, offending_ips: IpDeta
             column_info = page['ColumnInfo']
             for row in page['Rows']:
                 logger.debug("Row %s", str(row))
-                ip, version = process_row(column_info, row, threshold)
+                ip, version = process_row(column_info, row, threshold, host, distribution)
                 if ip:
                     offending_ips[version]["ips"].add(ip)
 
@@ -171,7 +188,7 @@ def lambda_handler(event: str, context) -> None:
     duration, threshold = get_config(host, distribution)
     logger.info(f"Host: {host}, distribution: {distribution}, duration: {duration}, threshold: {threshold}, from table {os.environ['CONFIGURATION_DYNAMODB']}")
 
-    offending_ips = process_host(host, duration, threshold, offending_ips_info)
+    offending_ips = process_host(host, distribution, duration, threshold, offending_ips_info)
     logger.info(offending_ips)
 
     for ip_version, ip_details in offending_ips.items():
