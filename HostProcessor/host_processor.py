@@ -136,15 +136,17 @@ def process_host(host: str, distribution: str, duration: str, threshold: int, of
 
         for page in page_iterator:
             column_info = page['ColumnInfo']
+            logger.debug("Col: %s", str(column_info))
             for row in page['Rows']:
-                logger.debug("Row %s", str(row))
+                logger.debug("Row: %s", str(row))
                 ip, version = process_row(column_info, row, threshold, host, distribution)
                 if ip:
                     offending_ips[version]["ips"].add(ip)
 
     except Exception as err:
         logger.exception("ERROR IN TIMESTREAM QUERY")
-        logger.error("Exception while running query: %s", str(err))
+        logger.info(f"Column_info: {column_info}, Row: {row} Threshold: {threshold}, Host: {host}, Distribution: {distribution}")
+        exit(f"Exception while running timestream query: {err}")
     else:
         logger.info("TimeStream Query Success")
         return offending_ips

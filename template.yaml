@@ -371,7 +371,6 @@ Resources:
               Arn: !GetAtt WAFIpSetIpV4.Arn
           Action:
             Block: {}   # Block all
-              # block with msg
               # CustomResponse:
               #   ResponseCode: 503
               #   CustomResponseBodyKey: CustomResponseBodyKey1
