@@ -16,7 +16,7 @@ logger.setLevel(int(os.getenv("LOG_LVL", '10')))
 
 TIMESTREAM_DB_NAME = os.environ["TIMESTREAM_DB_NAME"]
 TIMESTREAM_TABLE_NAME = os.environ["TIMESTREAM_TABLE_NAME"]
-
+SNS_ARN = os.environ["SNS_ARN"]
 IPV4SET_NAME, IPV4SET_ID, _ = os.environ['IPV4SET_DETAILS'].split("|")
 IPV6SET_NAME, IPV6SET_ID, _ = os.environ['IPV6SET_DETAILS'].split("|")
 
@@ -164,6 +164,16 @@ def get_config(host: str, distribution: str) -> Tuple[str, int]:
     logger.debug("Get Configurations details from Dynamo db Successfully")
     return response['Item']['duration'], int(response['Item']['threshold'])
 
+def publish_to_sns(sub, msg):
+    topic_arn = SNS_ARN
+    sns = boto3.client("sns")
+    response = sns.publish(
+        TopicArn=topic_arn,
+        Message=msg,
+        Subject=sub
+    )
+
+    logger.info("Published to SNS: %s", str(response))
 
 def lambda_handler(event: str, context) -> None:
     """Main Fn: Adds offending ips to WAf Block List based on threshold"""
@@ -198,3 +208,19 @@ def lambda_handler(event: str, context) -> None:
             logger.info('Updated IPSet %s with %d CIDRs', ip_details["ipset_name"], len(blocked_ips))
         else:
             logger.info("No %s Addresses found", ip_version)
+
+    if offending_ips['IPv4']['ips'] or offending_ips['IPv6']['ips']:
+        sub = f"List of IP's Blocked by WAF"
+        msg = f"""
+            ------------------------------------------------------------------------------------
+            Summary of the process:
+            ------------------------------------------------------------------------------------
+            {'Host':<20}:{host}
+            {'Distribution':<20}:{distribution}
+            {'Threshold':<20}:{threshold}
+            {'Duration':<20}:{duration}
+            {'IPV4':<20}:{offending_ips['IPv4']['ips']}
+            {'IPV6':<20}:{offending_ips['IPv6']['ips']}
+            ------------------------------------------------------------------------------------
+            """
+        publish_to_sns(sub, msg)
