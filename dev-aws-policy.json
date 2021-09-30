@@ -240,7 +240,18 @@
         "sns:CreateTopic",
         "sns:ConfirmSubscription",
         "sns:ListTopics",
-        "sns:ListSubscriptions"
+        "sns:ListSubscriptions",        
+        "waf-regional:*",
+        "elasticloadbalancing:SetWebACL",                
+        "apigateway:SetWebACL",        
+        "cloudfront:ListDistributionsByWebACLId",        
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics",
+        "ec2:DescribeRegions",
+        "elasticloadbalancing:DescribeLoadBalancers",        
+        "appsync:ListGraphqlApis",
+        "appsync:SetWebACL"          
       ],
       "Resource": "*"
     }
