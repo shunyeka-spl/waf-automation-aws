@@ -251,7 +251,8 @@
         "ec2:DescribeRegions",
         "elasticloadbalancing:DescribeLoadBalancers",        
         "appsync:ListGraphqlApis",
-        "appsync:SetWebACL"          
+        "appsync:SetWebACL",
+        "cloudfront:DeleteRealtimeLogConfig"
       ],
       "Resource": "*"
     }
