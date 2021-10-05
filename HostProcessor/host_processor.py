@@ -51,7 +51,7 @@ def remove_unwanted_ip(ips: List[str]) -> List[str]:
     except ValueError as r:
         logger.debug(r)
 
-def save_block_history(host: str, distribution: str, blocked_ips: List[str], ip_type: str, ipset_id: str) -> None:
+def save_block_history(host: str, distribution: str, blocked_ips: List[str], ip_type: str, ipset_id: str, ipset_name: str) -> None:
     """Inserts Blocked Ip data in dynamodb table"""
 
     remove_unwanted_ip(blocked_ips)
@@ -69,6 +69,7 @@ def save_block_history(host: str, distribution: str, blocked_ips: List[str], ip_
                     'ip': ip,
                     'ip_type': ip_type,
                     'ipset_id': ipset_id,
+                    'ipset_name': ipset_name,
                 }
             logger.debug(f"Dynamodb table {WAF_BLOCK_IP_TABLE} data: {values}")
             batch.put_item(
@@ -103,9 +104,13 @@ def update_waf_ipset(ipset_name: str, ipset_id: str, ips_to_be_blocked: Set[str]
     except waf_client.exceptions.WAFOptimisticLockException as e:
         logger.error(e)
         if retry > 0:
+            logger.debug("Retrying Update Waf IpSet: %d", retry)
             return update_waf_ipset(ipset_name, ipset_id, ips_to_be_blocked, host, distribution, ip_type, retry = retry - 1)
+        else:
+            logger.error("Retied %d times, IpSet not Updated", retry)
+            raise Exception("Unable to Update Waf IpSet %s, retries: %d", ipset_name, retry)
 
-    save_block_history(host, distribution, ips_to_be_blocked_list, ip_type, ipset_id)
+    save_block_history(host, distribution, ips_to_be_blocked_list, ip_type, ipset_id, ipset_name)
     logger.debug("Added Offending Ip Addresses to WAF IPSets")
     return ips_to_be_blocked_list
 
@@ -121,14 +126,20 @@ def get_ipset_lock_token(client: Callable, ipset_name: str, ipset_id: str) -> Tu
     return ip_set['LockToken'], ip_set['IPSet']['Addresses']
 
 
-def process_row(column_info: List[str], row: Dict[str, Any], threshold: int) -> Tuple[Optional[str], Optional[str]]:
+def process_row(column_info: List[str], row: Dict[str, Any], threshold: int) -> Tuple[Optional[str, List[str]], Optional[str]]:
     '''if 'no of request' > 'threshold' then return the ip and type of ip'''
 
     row_dict = {column["Name"]:value["ScalarValue"] for column, value in zip(column_info, row["Data"])}
 
     if int(row_dict["Frequency"]) > threshold:
         logger.debug("Offending Ip %s found in row %s", row_dict["c_ip"], str(row_dict))
-        return row_dict.get("c_ip") or row_dict["x_forwarded_for"], row_dict["c_ip_version"]
+
+        if row_dict.get('c_ip'):
+            return row_dict["c_ip"], row_dict["c_ip_version"]
+        elif isinstance(row_dict.get('x_forwarded_for'), str):
+            return row_dict["x_forwarded_for"], row_dict["c_ip_version"]
+        elif isinstance(row_dict.get('x_forwarded_for'), list):
+            return [i.strip() for i in row_dict["x_forwarded_for"].split(",")], row_dict["c_ip_version"]
     return None, None
 
 def process_host(header: str, host: str, duration: str, threshold: int, offending_ips: IpDetails) -> IpDetails:
@@ -148,12 +159,14 @@ def process_host(header: str, host: str, duration: str, threshold: int, offendin
             for row in page['Rows']:
                 logger.debug("Row %s", str(row))
                 ip, version = process_row(column_info, row, threshold)
-                if ip:
+                if isinstance(ip, str):
                     offending_ips[version]["ips"].add(ip)
+                elif isinstance(ip, list):
+                    offending_ips[version]["ips"].update(ip)
 
     except Exception as err:
         logger.exception("ERROR IN TIMESTREAM QUERY")
-        logger.error("Exception while running query: %s", str(err))
+        raise Exception(f"Exception while running query: {err}")
     else:
         logger.info("TimeStream Query Success")
         return offending_ips
@@ -191,6 +204,7 @@ def lambda_handler(event: str, context) -> None:
             "ipset_id": IPV6SET_ID,
         }
     }
+    retry: int = 3
 
     host, distribution = event['host_details'].split(',')
 
@@ -204,7 +218,7 @@ def lambda_handler(event: str, context) -> None:
 
     for ip_version, ip_details in offending_ips.items():
         if ip_details["ips"]:
-            blocked_ips = update_waf_ipset(ip_details["ipset_name"], ip_details["ipset_id"], ip_details["ips"], host, distribution, ip_version)
+            blocked_ips = update_waf_ipset(ip_details["ipset_name"], ip_details["ipset_id"], ip_details["ips"], host, distribution, ip_version, retry)
             logger.info('Blocked Ips: %s', str(blocked_ips))
             logger.info("Updated IPSet %s with %d IP's", ip_details["ipset_name"], len(blocked_ips))
         else:
