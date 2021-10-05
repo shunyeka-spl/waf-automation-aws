@@ -4,7 +4,7 @@ import time
 import os
 import datetime
 import logging
-from typing import Set, Tuple, List, Callable, Dict, Optional, TypedDict, Any
+from typing import Set, Tuple, List, Callable, Dict, Optional, TypedDict, Any, Union
 import boto3
 
 logging.basicConfig(
@@ -126,7 +126,7 @@ def get_ipset_lock_token(client: Callable, ipset_name: str, ipset_id: str) -> Tu
     return ip_set['LockToken'], ip_set['IPSet']['Addresses']
 
 
-def process_row(column_info: List[str], row: Dict[str, Any], threshold: int) -> Tuple[Optional[str, List[str]], Optional[str]]:
+def process_row(column_info: List[str], row: Dict[str, Any], threshold: int) -> Tuple[Optional[Union[str, List[str]]], Optional[str]]:
     '''if 'no of request' > 'threshold' then return the ip and type of ip'''
 
     row_dict = {column["Name"]:value["ScalarValue"] for column, value in zip(column_info, row["Data"])}
