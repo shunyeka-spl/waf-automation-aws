@@ -349,94 +349,60 @@ Resources:
         SampledRequestsEnabled: true
         CloudWatchMetricsEnabled: true
         MetricName: WebACLMetricForCloudfront
-      CustomResponseBodies: # Response bodies when block action is applied
-        CustomResponseBodyKey1:
-          ContentType: TEXT_PLAIN
-          Content: this is a plain text
-        CustomResponseBodyKey2:
-          ContentType: APPLICATION_JSON
-          Content: '{"jsonfieldname": "jsonfieldvalue"}'
-        CustomResponseBodyKey3:
-          ContentType: TEXT_HTML
-          Content: <html>HTML text content</html>
       Rules:
-        # - Name: RuleWithAWSManagedRules
-        #   Priority: 0
-        #   OverrideAction:
-        #     Count: {}
-        #   VisibilityConfig:
-        #     SampledRequestsEnabled: true
-        #     CloudWatchMetricsEnabled: true
-        #     MetricName: RuleWithAWSManagedRulesMetric
-        #   Statement:
-        #     ManagedRuleGroupStatement:
-        #       VendorName: AWS
-        #       Name: AWSManagedRulesCommonRuleSet
-        #       ExcludedRules: []
-        # - Name: BlockXssAttack
-        #   Priority: 1
-        #   Action:
-        #     Block:
-        #       CustomResponse:
-        #         ResponseCode: 503
-        #         CustomResponseBodyKey: CustomResponseBodyKey1
-        #         ResponseHeaders:
-        #           - Name: BlockActionHeader1Name
-        #             Value: BlockActionHeader1Value
-        #           - Name: BlockActionHeader2Name
-        #             Value: BlockActionHeader2Value
-        #   VisibilityConfig:
-        #     SampledRequestsEnabled: true
-        #     CloudWatchMetricsEnabled: true
-        #     MetricName: BlockXssAttackMetric
-        #   Statement:
-        #     XssMatchStatement:
-        #       FieldToMatch:
-        #         AllQueryArguments: {}
-        #       TextTransformations:
-        #         - Priority: 1
-        #           Type: NONE
-
-        - Name: test-rule-for-ip-set
+        - Name: SourceIPv4
           Priority: 0
           Statement:
             IPSetReferenceStatement:
               Arn: !GetAtt WAFIpSetIpV4.Arn
           Action:
             Block: {}   # Block all
-              # block with msg
-              # CustomResponse:
-              #   ResponseCode: 503
-              #   CustomResponseBodyKey: CustomResponseBodyKey1
-              #   ResponseHeaders:
-              #     - Name: BlockActionHeader1Name
-              #       Value: BlockActionHeader1Value
-              #     - Name: BlockActionHeader2Name
-              #       Value: BlockActionHeader2Value
           VisibilityConfig:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
-            MetricName: test-rule-for-ip-set
-        - Name: testip6
+            MetricName: SourceIPv4
+        - Name: XXFIPv4
           Priority: 1
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV4.Arn
+              IPSetForwardedIPConfig:
+                HeaderName: x-forwarded-for
+                FallbackBehavior: MATCH
+                Position: ANY
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: XXFIPv4
+        - Name: SourceIPv6
+          Priority: 2
           Statement:
             IPSetReferenceStatement:
               Arn: !GetAtt WAFIpSetIpV6.Arn
           Action:
             Block: {}
-              # block with msg
-              # CustomResponse:
-              #   ResponseCode: 503
-              #   CustomResponseBodyKey: CustomResponseBodyKey1
-              #   ResponseHeaders:
-              #     - Name: BlockActionHeader1Name
-              #       Value: BlockActionHeader1Value
-              #     - Name: BlockActionHeader2Name
-              #       Value: BlockActionHeader2Value
           VisibilityConfig:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
-            MetricName: testip6
+            MetricName: SourceIPv6
+        - Name: XFFIPv6
+          Priority: 3
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV6.Arn
+              IPSetForwardedIPConfig:
+                HeaderName: x-forwarded-for
+                FallbackBehavior: MATCH
+                Position: ANY
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: XFFIPv6
+
 
 Outputs:
   CloudWatchMetricsUrl:
