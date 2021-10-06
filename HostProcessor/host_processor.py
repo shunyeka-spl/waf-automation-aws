@@ -4,6 +4,8 @@ import time
 import os
 import datetime
 import logging
+import traceback
+import concurrent.futures
 from typing import Set, Tuple, List, Callable, Dict, Optional, TypedDict, Any, Union
 import boto3
 
@@ -18,6 +20,7 @@ WAF_BLOCK_IP_TABLE = os.environ['BLOCKLIST_DYNAMODB']
 WAF_DDB_CONFIG_TABLE = os.environ['CONFIGURATION_DYNAMODB']
 
 # SNS_ARN = os.environ["SNS_ARN"]
+THREAD_COUNT = int(os.environ['THREAD_COUNT'])
 
 TIMESTREAM_DB_NAME = os.environ["TIMESTREAM_DB_NAME"]
 TIMESTREAM_TABLE_NAME = os.environ["TIMESTREAM_TABLE_NAME"]
@@ -242,16 +245,43 @@ def lambda_handler(event: str, context) -> None:
     logger.info(f"Host: {host}, distribution: {distribution}, duration: {duration}, threshold: {threshold}, from table {WAF_DDB_CONFIG_TABLE}")
 
     headers = ("x_forwarded_for", "c_ip")
-    for header in headers:
-        offending_ips = process_host(header, host, duration, threshold, offending_ips_info)
-        logger.info(offending_ips)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
+        future_to_project = {executor.submit(process_host, header, host, duration, threshold, offending_ips_info): header for header in headers}
+        for future in concurrent.futures.as_completed(future_to_project):
+            processed = future_to_project[future]
+            try:
+                data = future.result()
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.error("%r generated an exception: %s", processed, exc)
+                traceback.print_exc()
+            else:
+                logger.info("%s query status  %s", processed, data)
 
-    for ip_version, ip_details in offending_ips.items():
-        if ip_details["ips"]:
-            blocked_ips = update_waf_ipset(ip_details["ipset_name"], ip_details["ipset_id"], ip_details["ips"], host, distribution, ip_version, retry)
-            logger.info('Blocked Ips: %s', str(blocked_ips))
-            logger.info("Updated IPSet %s with %d IP's", ip_details["ipset_name"], len(blocked_ips))
-            # publish_to_sns(host, distribution, threshold, duration, offending_ips)
-        else:
-            logger.info("No %s Addresses found", ip_version)
+    # for header in headers:
+    #     offending_ips = process_host(header, host, duration, threshold, offending_ips_info)
+    logger.info(f"offending_ips_info: {offending_ips_info}")
 
+    with concurrent.futures.ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
+        future_to_project = {executor.submit(update_waf_ipset, ip_details["ipset_name"], ip_details["ipset_id"], ip_details["ips"], host, distribution, ip_version, retry): (ip_version, ip_details) for ip_version, ip_details in offending_ips_info.items() if ip_details["ips"] }
+        for future in concurrent.futures.as_completed(future_to_project):
+            processed = future_to_project[future]
+            try:
+                data = future.result()
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.error("%r generated an exception: %s", processed, exc)
+                traceback.print_exc()
+            else:
+                logger.info("%r status  %s", processed, data)
+                # logger.info("Updated IPSet %s with %d IP's", ip_details["ipset_name"], len(data))
+                logger.info('Blocked Ips: %s', str(data))
+
+    # MT
+    # for ip_version, ip_details in offending_ips_info.items():
+    #     if ip_details["ips"]:
+    #         blocked_ips = update_waf_ipset(ip_details["ipset_name"], ip_details["ipset_id"], ip_details["ips"], host, distribution, ip_version, retry)
+    #         logger.info('Blocked Ips: %s', str(blocked_ips))
+    #         logger.info("Updated IPSet %s with %d IP's", ip_details["ipset_name"], len(blocked_ips))
+    #         # publish_to_sns(host, distribution, threshold, duration, offending_ips)
+    #     else:
+    #         logger.info("No %s Addresses found", ip_version)
+    # Join

@@ -124,6 +124,7 @@ Resources:
         Variables:
           LOG_LVL: '20'
           # SNS_ARN: !Ref SNSWAFIpBlockNotifiaction
+          THREAD_COUNT: 2
           CONFIGURATION_DYNAMODB: !Ref WAFConfigTable
           BLOCKLIST_DYNAMODB: !Ref WAFBlockHistoryTable
           TIMESTREAM_DB_NAME: !Ref CloudFrontLogsTimeSeriesDb
