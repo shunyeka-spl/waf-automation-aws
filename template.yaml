@@ -123,7 +123,7 @@ Resources:
       Environment:
         Variables:
           LOG_LVL: '20'
-          SNS_ARN: !Ref SNSWAFIpBlockNotifiaction
+          # SNS_ARN: !Ref SNSWAFIpBlockNotifiaction
           CONFIGURATION_DYNAMODB: !Ref WAFConfigTable
           BLOCKLIST_DYNAMODB: !Ref WAFBlockHistoryTable
           TIMESTREAM_DB_NAME: !Ref CloudFrontLogsTimeSeriesDb
@@ -202,17 +202,17 @@ Resources:
       AttributeDefinitions:
       - AttributeName: distribution
         AttributeType: S
-      - AttributeName: host
+      - AttributeName: ip
         AttributeType: S
       KeySchema:
       - AttributeName: distribution
         KeyType: HASH
-      - AttributeName: host
+      - AttributeName: ip
         KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
-      TableName: "waf-block-history"
+      TableName: "waf-block-ip-history"
 
   CloudFrontRealtimeLogConfig:
     Type: AWS::CloudFront::RealtimeLogConfig
@@ -325,13 +325,13 @@ Resources:
         MemoryStoreRetentionPeriodInHours: 24
         MagneticStoreRetentionPeriodInDays: 7
 
-  SNSWAFIpBlockNotifiaction:
-    Type: AWS::SNS::Topic
-    Properties:
-      DisplayName: "Waf-Ip-Block-Notification"
-      Subscription: 
-        - Endpoint: !Ref EmailAddress
-          Protocol: 'email'
+  # SNSWAFIpBlockNotifiaction:
+  #   Type: AWS::SNS::Topic
+  #   Properties:
+  #     DisplayName: "Waf-Ip-Block-Notification"
+  #     Subscription:
+  #       - Endpoint: !Ref EmailAddress
+  #         Protocol: 'email'
 
   # WAF Resources, Will only work in region us-east-1
   WAFIpSetIpV4:

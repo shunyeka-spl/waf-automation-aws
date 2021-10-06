@@ -17,7 +17,7 @@ logger.setLevel(int(os.getenv("LOG_LVL", '10')))
 WAF_BLOCK_IP_TABLE = os.environ['BLOCKLIST_DYNAMODB']
 WAF_DDB_CONFIG_TABLE = os.environ['CONFIGURATION_DYNAMODB']
 
-SNS_ARN = os.environ["SNS_ARN"]
+# SNS_ARN = os.environ["SNS_ARN"]
 
 TIMESTREAM_DB_NAME = os.environ["TIMESTREAM_DB_NAME"]
 TIMESTREAM_TABLE_NAME = os.environ["TIMESTREAM_TABLE_NAME"]
@@ -61,9 +61,8 @@ def save_block_history(host: str, distribution: str, blocked_ips: List[str], ip_
 
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(WAF_BLOCK_IP_TABLE)
-    # with put_item function we insert data in Table
 
-    with table.batch_writer(overwrite_by_pkeys=["distribution", "host"]) as batch:
+    with table.batch_writer(overwrite_by_pkeys=['distribution', "ip"]) as batch:
         for ip in blocked_ips:
             values = {
                     'host': host,
@@ -74,7 +73,7 @@ def save_block_history(host: str, distribution: str, blocked_ips: List[str], ip_
                     'ipset_id': ipset_id,
                     'ipset_name': ipset_name,
                 }
-            logger.debug(f"Dynamodb table {WAF_BLOCK_IP_TABLE} data: {values}")
+            logger.debug(f"Put block ip to DDB table {WAF_BLOCK_IP_TABLE} data: {values}")
             batch.put_item(
                 Item=values
             )
@@ -111,7 +110,7 @@ def update_waf_ipset(ipset_name: str, ipset_id: str, ips_to_be_blocked: Set[str]
             return update_waf_ipset(ipset_name, ipset_id, ips_to_be_blocked, host, distribution, ip_type, retry = retry - 1)
         else:
             logger.error("Retied %d times, IpSet not Updated", retry)
-            raise Exception("Unable to Update Waf IpSet %s, retries: %d", ipset_name, retry)
+            raise Exception("Unable to Update Waf IpSet %s, retries: %d exceeded", ipset_name, retry)
 
     save_block_history(host, distribution, ips_to_be_blocked_list, ip_type, ipset_id, ipset_name)
     logger.debug("Added Offending Ip Addresses to WAF IPSets")
@@ -131,19 +130,22 @@ def get_ipset_lock_token(client: Callable, ipset_name: str, ipset_id: str) -> Tu
 
 def process_row(column_info: List[str], row: Dict[str, Any], threshold: int) -> Tuple[Optional[Union[str, List[str]]], Optional[str]]:
     '''if 'no of request' > 'threshold' then return the ip and type of ip'''
+    try:
+        row_dict = {column["Name"]:value["ScalarValue"] for column, value in zip(column_info, row["Data"])}
 
-    row_dict = {column["Name"]:value["ScalarValue"] for column, value in zip(column_info, row["Data"])}
+        if int(row_dict["Frequency"]) > threshold:
+            logger.debug("Row debug: %s", str(row_dict))
 
-    if int(row_dict["Frequency"]) > threshold:
-        logger.debug("Offending Ip %s found in row %s", row_dict["c_ip"], str(row_dict))
-
-        if row_dict.get('c_ip'):
-            return row_dict["c_ip"], row_dict["c_ip_version"]
-        elif isinstance(row_dict.get('x_forwarded_for'), str):
-            return row_dict["x_forwarded_for"], row_dict["c_ip_version"]
-        elif isinstance(row_dict.get('x_forwarded_for'), list):
-            return [i.strip() for i in row_dict["x_forwarded_for"].split(",")], row_dict["c_ip_version"]
-    return None, None
+            if row_dict.get('c_ip'):
+                return row_dict["c_ip"], row_dict["c_ip_version"]
+            elif row_dict.get('x_forwarded_for'):
+                return [i.strip() for i in row_dict["x_forwarded_for"].split(",")], row_dict["c_ip_version"]
+            else:
+                raise Exception(f"No ip found, frequency > threshold, Row: {row_dict}")
+        else:
+            return None, None
+    except Exception as e:
+        logger.exception(f"Error in process_row function: {e}")
 
 def process_host(header: str, host: str, duration: str, threshold: int, offending_ips: IpDetails) -> IpDetails:
     """Query Timestream db for logs and return ips where count greater than threshold"""
@@ -174,30 +176,30 @@ def process_host(header: str, host: str, duration: str, threshold: int, offendin
         logger.info("TimeStream Query Success")
         return offending_ips
 
-def publish_to_sns(host: str, distribution: str, threshold: int, duration: str, offending_ips: IpDetails) -> None:
+# def publish_to_sns(host: str, distribution: str, threshold: int, duration: str, offending_ips: IpDetails) -> None:
 
-    subject = f"List of IP's Blocked by WAF"
-    message = f"""
-        ------------------------------------------------------------------------------------
-        Successfully Blocked these IP's
-        ------------------------------------------------------------------------------------
-        {'Host':<20}:{host}
-        {'Distribution':<20}:{distribution}
-        {'Threshold':<20}:{threshold}
-        {'Duration':<20}:{duration}
-        {'IPV4':<20}:{offending_ips['IPv4']['ips']}
-        {'IPV6':<20}:{offending_ips['IPv6']['ips']}
-        ------------------------------------------------------------------------------------
-        """
+#     subject = f"List of IP's Blocked by WAF"
+#     message = f"""
+#         ------------------------------------------------------------------------------------
+#         Successfully Blocked these IP's
+#         ------------------------------------------------------------------------------------
+#         {'Host':<20}:{host}
+#         {'Distribution':<20}:{distribution}
+#         {'Threshold':<20}:{threshold}
+#         {'Duration':<20}:{duration}
+#         {'IPV4':<20}:{offending_ips['IPv4']['ips']}
+#         {'IPV6':<20}:{offending_ips['IPv6']['ips']}
+#         ------------------------------------------------------------------------------------
+#         """
 
-    sns = boto3.client("sns")
-    response = sns.publish(
-        TopicArn=SNS_ARN,
-        Message=message,
-        Subject=subject,
-    )
+#     sns = boto3.client("sns")
+#     response = sns.publish(
+#         TopicArn=SNS_ARN,
+#         Message=message,
+#         Subject=subject,
+#     )
 
-    logger.info("Published to SNS: %s", str(response))
+#     logger.info("Published to SNS: %s", str(response))
 
 def get_config(host: str, distribution: str) -> Tuple[str, int]:
     """This function reads configuration data from dynamodb table"""
@@ -249,7 +251,7 @@ def lambda_handler(event: str, context) -> None:
             blocked_ips = update_waf_ipset(ip_details["ipset_name"], ip_details["ipset_id"], ip_details["ips"], host, distribution, ip_version, retry)
             logger.info('Blocked Ips: %s', str(blocked_ips))
             logger.info("Updated IPSet %s with %d IP's", ip_details["ipset_name"], len(blocked_ips))
-            publish_to_sns(host, distribution, threshold, duration, offending_ips)
+            # publish_to_sns(host, distribution, threshold, duration, offending_ips)
         else:
             logger.info("No %s Addresses found", ip_version)
 
