@@ -160,6 +160,8 @@ Resources:
               Resource: 
                 - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:global/ipset/*/${WAFIpSetIpV4.Id}'
                 - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:global/ipset/*/${WAFIpSetIpV6.Id}'
+                # - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:global/ipset/*/${WAFIpSetIpV4Forwarded.Id}'
+                # - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:global/ipset/*/${WAFIpSetIpV6Forwarded.Id}'
             - Effect: Allow
               Action:
                 - dynamodb:GetItem
@@ -322,6 +324,16 @@ Resources:
       IPAddressVersion: IPV4
       Addresses:
         - 10.0.0.0/32   # A dummy IPV4 Private Ip
+        
+  # WAFIpSetIpV4Forwarded:
+  #   Type: 'AWS::WAFv2::IPSet'
+  #   Properties:
+  #     Description: CloudFront blocked IpV4 Forwarded addresses
+  #     Name: IPV4SETFORWARDED
+  #     Scope: CLOUDFRONT
+  #     IPAddressVersion: IPV4
+  #     Addresses:
+  #       - 10.0.0.0/32   # A dummy IPV4 Private Ip
 
   WAFIpSetIpV6:
     Type: 'AWS::WAFv2::IPSet'
@@ -332,11 +344,23 @@ Resources:
       IPAddressVersion: IPV6
       Addresses:
         - fd4b:9821:be17:8c1e:0000:0000:0000:0000/128    # A dummy IPV6 Private Ip
+        
+  # WAFIpSetIpV6Forwarded:
+  #   Type: 'AWS::WAFv2::IPSet'
+  #   Properties:
+  #     Description: CloudFront blocked IpV6 Forwarded addresses
+  #     Name: IPV6SETFORWARDED
+  #     Scope: CLOUDFRONT
+  #     IPAddressVersion: IPV6
+  #     Addresses:
+  #       - fd4b:9821:be17:8c1e:0000:0000:0000:0000/128    # A dummy IPV6 Private Ip
 
   WAFWebACL:
     DependsOn:
       - WAFIpSetIpV4
       - WAFIpSetIpV6
+      # - WAFIpSetIpV4Forwarded
+      # - WAFIpSetIpV6Forwarded
     Type: 'AWS::WAFv2::WebACL'
     Properties:
       Name: WebACL-Cloudfront
@@ -351,91 +375,72 @@ Resources:
       CustomResponseBodies: # Response bodies when block action is applied
         CustomResponseBodyKey1:
           ContentType: TEXT_PLAIN
-          Content: this is a plain text
+          Content: You are blocked
         CustomResponseBodyKey2:
           ContentType: APPLICATION_JSON
           Content: '{"jsonfieldname": "jsonfieldvalue"}'
         CustomResponseBodyKey3:
           ContentType: TEXT_HTML
-          Content: <html>HTML text content</html>
+          Content: <html>You are Blocked</html>
       Rules:
-        # - Name: RuleWithAWSManagedRules
-        #   Priority: 0
-        #   OverrideAction:
-        #     Count: {}
-        #   VisibilityConfig:
-        #     SampledRequestsEnabled: true
-        #     CloudWatchMetricsEnabled: true
-        #     MetricName: RuleWithAWSManagedRulesMetric
-        #   Statement:
-        #     ManagedRuleGroupStatement:
-        #       VendorName: AWS
-        #       Name: AWSManagedRulesCommonRuleSet
-        #       ExcludedRules: []
-        # - Name: BlockXssAttack
-        #   Priority: 1
-        #   Action:
-        #     Block:
-        #       CustomResponse:
-        #         ResponseCode: 503
-        #         CustomResponseBodyKey: CustomResponseBodyKey1
-        #         ResponseHeaders:
-        #           - Name: BlockActionHeader1Name
-        #             Value: BlockActionHeader1Value
-        #           - Name: BlockActionHeader2Name
-        #             Value: BlockActionHeader2Value
-        #   VisibilityConfig:
-        #     SampledRequestsEnabled: true
-        #     CloudWatchMetricsEnabled: true
-        #     MetricName: BlockXssAttackMetric
-        #   Statement:
-        #     XssMatchStatement:
-        #       FieldToMatch:
-        #         AllQueryArguments: {}
-        #       TextTransformations:
-        #         - Priority: 1
-        #           Type: NONE
-
-        - Name: test-rule-for-ip-set
+      
+        - Name: ip4-forwarded-rule
           Priority: 0
           Statement:
             IPSetReferenceStatement:
               Arn: !GetAtt WAFIpSetIpV4.Arn
+              IPSetForwardedIPConfig:
+                HeaderName: X-Forwarded-For
+                FallbackBehavior: MATCH
+                Position: ANY
           Action:
             Block: {}   # Block all
-              # block with msg
-              # CustomResponse:
-              #   ResponseCode: 503
-              #   CustomResponseBodyKey: CustomResponseBodyKey1
-              #   ResponseHeaders:
-              #     - Name: BlockActionHeader1Name
-              #       Value: BlockActionHeader1Value
-              #     - Name: BlockActionHeader2Name
-              #       Value: BlockActionHeader2Value
           VisibilityConfig:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
-            MetricName: test-rule-for-ip-set
-        - Name: testip6
+            MetricName: ip4-forwarded-rule
+
+            
+        - Name: ip6-forwarded-rule
           Priority: 1
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV6.Arn
+              IPSetForwardedIPConfig:
+                HeaderName: x-forwarded-for
+                FallbackBehavior: MATCH
+                Position: ANY
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: ip6-forwarded-rule
+        - Name: ip4-rule
+          Priority: 2
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV4.Arn
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: ip4-rule
+            
+        - Name: ip6-rule
+          Priority: 3
           Statement:
             IPSetReferenceStatement:
               Arn: !GetAtt WAFIpSetIpV6.Arn
           Action:
             Block: {}
-              # block with msg
-              # CustomResponse:
-              #   ResponseCode: 503
-              #   CustomResponseBodyKey: CustomResponseBodyKey1
-              #   ResponseHeaders:
-              #     - Name: BlockActionHeader1Name
-              #       Value: BlockActionHeader1Value
-              #     - Name: BlockActionHeader2Name
-              #       Value: BlockActionHeader2Value
           VisibilityConfig:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
-            MetricName: testip6
+            MetricName: ip6-rule
+
+
 
 Outputs:
   CloudWatchMetricsUrl:

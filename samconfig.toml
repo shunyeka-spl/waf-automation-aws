@@ -2,11 +2,10 @@ version = 0.1
 [default]
 [default.deploy]
 [default.deploy.parameters]
-stack_name = "sam-app"
-s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1o1t3uyt54glr"
-s3_prefix = "sam-app"
-region = "eu-west-1"
-profile = "ssdev-1"
+stack_name = "waf-automation-2"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1c344o97df3f8"
+s3_prefix = "waf-automation-2"
+region = "us-east-1"
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "KinesisStreamShards=\"4\" RealtimeLogsSamplingPercentage=\"100\""
+parameter_overrides = "KinesisStreamShards=\"2\" RealtimeLogsSamplingPercentage=\"100\""
 confirm_changeset = true
