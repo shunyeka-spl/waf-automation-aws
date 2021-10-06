@@ -7,5 +7,5 @@ s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1c344o97df3f8"
 s3_prefix = "waf-automation-2"
 region = "us-east-1"
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "KinesisStreamShards=\"2\" RealtimeLogsSamplingPercentage=\"100\""
+parameter_overrides = "KinesisStreamShards=\"2\" RealtimeLogsSamplingPercentage=\"100\" EmailAddress=\"hitesh@shunyeka.com\""
 confirm_changeset = true

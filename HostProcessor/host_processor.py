@@ -15,6 +15,9 @@ logger = logging.getLogger()
 logger.setLevel(int(os.getenv("LOG_LVL", '10')))
 
 WAF_BLOCK_IP_TABLE = os.environ['BLOCKLIST_DYNAMODB']
+WAF_DDB_CONFIG_TABLE = os.environ['CONFIGURATION_DYNAMODB']
+
+SNS_ARN = os.environ["SNS_ARN"]
 
 TIMESTREAM_DB_NAME = os.environ["TIMESTREAM_DB_NAME"]
 TIMESTREAM_TABLE_NAME = os.environ["TIMESTREAM_TABLE_NAME"]
@@ -149,7 +152,7 @@ def process_host(header: str, host: str, duration: str, threshold: int, offendin
     paginator = query_client.get_paginator('query')
 
     query = f'''SELECT {header}, cs_host, cs_uri_stem, x_host_header, c_ip_version, COUNT({header}) AS Frequency FROM "{TIMESTREAM_DB_NAME}"."{TIMESTREAM_TABLE_NAME}"  WHERE cs_host='{host}' AND time between ago({duration}) and now() AND {header} != '-' GROUP BY {header},cs_host,cs_uri_stem,c_ip_version,x_host_header ORDER BY Frequency DESC '''
-    logger.info("Query String = %s", query)
+    logger.debug("Query String = %s", query)
 
     try:
         page_iterator = paginator.paginate(QueryString=query)
@@ -165,17 +168,42 @@ def process_host(header: str, host: str, duration: str, threshold: int, offendin
                     offending_ips[version]["ips"].update(ip)
 
     except Exception as err:
-        logger.exception("ERROR IN TIMESTREAM QUERY")
+        logger.exception(f"ERROR IN TIMESTREAM QUERY, Column_info: {column_info}, Row: {row} Threshold: {threshold}, Host: {host}")
         raise Exception(f"Exception while running query: {err}")
     else:
         logger.info("TimeStream Query Success")
         return offending_ips
 
+def publish_to_sns(host: str, distribution: str, threshold: int, duration: str, offending_ips: IpDetails) -> None:
+
+    subject = f"List of IP's Blocked by WAF"
+    message = f"""
+        ------------------------------------------------------------------------------------
+        Successfully Blocked these IP's
+        ------------------------------------------------------------------------------------
+        {'Host':<20}:{host}
+        {'Distribution':<20}:{distribution}
+        {'Threshold':<20}:{threshold}
+        {'Duration':<20}:{duration}
+        {'IPV4':<20}:{offending_ips['IPv4']['ips']}
+        {'IPV6':<20}:{offending_ips['IPv6']['ips']}
+        ------------------------------------------------------------------------------------
+        """
+
+    sns = boto3.client("sns")
+    response = sns.publish(
+        TopicArn=SNS_ARN,
+        Message=message,
+        Subject=subject,
+    )
+
+    logger.info("Published to SNS: %s", str(response))
+
 def get_config(host: str, distribution: str) -> Tuple[str, int]:
     """This function reads configuration data from dynamodb table"""
 
     dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table(os.environ['CONFIGURATION_DYNAMODB'])
+    table = dynamodb.Table(WAF_DDB_CONFIG_TABLE)
 
     response = table.get_item(
         Key={
@@ -209,7 +237,7 @@ def lambda_handler(event: str, context) -> None:
     host, distribution = event['host_details'].split(',')
 
     duration, threshold = get_config(host, distribution)
-    logger.info(f"Host: {host}, distribution: {distribution}, duration: {duration}, threshold: {threshold}, from table {os.environ['CONFIGURATION_DYNAMODB']}")
+    logger.info(f"Host: {host}, distribution: {distribution}, duration: {duration}, threshold: {threshold}, from table {WAF_DDB_CONFIG_TABLE}")
 
     headers = ("x_forwarded_for", "c_ip")
     for header in headers:
@@ -221,13 +249,7 @@ def lambda_handler(event: str, context) -> None:
             blocked_ips = update_waf_ipset(ip_details["ipset_name"], ip_details["ipset_id"], ip_details["ips"], host, distribution, ip_version, retry)
             logger.info('Blocked Ips: %s', str(blocked_ips))
             logger.info("Updated IPSet %s with %d IP's", ip_details["ipset_name"], len(blocked_ips))
+            publish_to_sns(host, distribution, threshold, duration, offending_ips)
         else:
             logger.info("No %s Addresses found", ip_version)
 
-"""
-Query for x_forwarded_for column
-SELECT x_forwarded_for, cs_host, cs_uri_stem, x_host_header, c_ip_version, COUNT(x_forwarded_for) AS Frequency FROM "CloudFrontLogsTimeSeriesDb-iV8XeSLItCX2"."RealtimeLogsTable-CfP66didm9mb"  WHERE cs_host='waftest1.ccrt.us' AND time between ago(2h) and now() AND x_forwarded_for != '-' GROUP BY x_forwarded_for, cs_host,cs_uri_stem,c_ip_version,x_host_header ORDER BY Frequency DESC
-
-Query for c_ip column , same as above
-SELECT c_ip, cs_host, cs_uri_stem, x_host_header, c_ip_version, COUNT(c_ip) AS Frequency FROM "CloudFrontLogsTimeSeriesDb-iV8XeSLItCX2"."RealtimeLogsTable-CfP66didm9mb"  WHERE cs_host='waftest1.ccrt.us' AND time between ago(2h) and now() AND c_ip != '-' GROUP BY c_ip,cs_host,cs_uri_stem,c_ip_version,x_host_header ORDER BY Frequency DESC
-"""

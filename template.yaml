@@ -12,6 +12,10 @@ Parameters:
     Default: 100
     MinValue: 1
     MaxValue: 100
+  EmailAddress:
+    Type: String
+    Description: 'Email address to send list of blocked ips'
+    Default: ''
 
 Resources:
   LogProcessor:
@@ -35,6 +39,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref RealtimeLogsTable
+          HOST_FN_NAME: !Ref HostProcessor
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -118,6 +123,7 @@ Resources:
       Environment:
         Variables:
           LOG_LVL: '20'
+          SNS_ARN: !Ref SNSWAFIpBlockNotifiaction
           CONFIGURATION_DYNAMODB: !Ref WAFConfigTable
           BLOCKLIST_DYNAMODB: !Ref WAFBlockHistoryTable
           TIMESTREAM_DB_NAME: !Ref CloudFrontLogsTimeSeriesDb
@@ -128,7 +134,7 @@ Resources:
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
-              Action: 
+              Action:
                 - logs:CreateLogGroup
                 - logs:CreateLogStream
                 - logs:PutDestination
@@ -141,7 +147,7 @@ Resources:
                 - xray:PutTelemetryRecords
                 - xray:GetSamplingRules
                 - xray:GetSamplingTargets
-              Resource: 
+              Resource:
                 - '*'
             - Effect: Allow
               Action: 
@@ -294,6 +300,12 @@ Resources:
       LogGroupName: !Sub '/aws/lambda/${LogProcessor}'
       RetentionInDays: 30
 
+  HostProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${HostProcessor}'
+      RetentionInDays: 30
+
   CloudFrontLogStream:
     Type: AWS::Kinesis::Stream
     Properties:
@@ -312,6 +324,14 @@ Resources:
       RetentionProperties:
         MemoryStoreRetentionPeriodInHours: 24
         MagneticStoreRetentionPeriodInDays: 7
+
+  SNSWAFIpBlockNotifiaction:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Waf-Ip-Block-Notification"
+      Subscription: 
+        - Endpoint: !Ref EmailAddress
+          Protocol: 'email'
 
   # WAF Resources, Will only work in region us-east-1
   WAFIpSetIpV4:
@@ -411,7 +431,9 @@ Outputs:
   LogProcessorLogGroup:
     Description: Link to the CloudWatch Log Group for the log processor lambda function where logs are delivered
     Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:log-groups/log-group/$252Faws$252Flambda$252F${LogProcessor}'
+  HostProcessorLogGroup:
+    Description: Link to the CloudWatch Log Group for the host processor lambda function where logs are delivered
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:log-groups/log-group/$252Faws$252Flambda$252F${HostProcessor}'
   TimestreamQueryEditor:
     Description: Link to the Amazon Timestream query editor for the database that was deployed by the solution
     Value: !Sub 'https://console.aws.amazon.com/timestream/home?region=${AWS::Region}#query-editor:/Database/${CloudFrontLogsTimeSeriesDb}'
-    

@@ -20,6 +20,7 @@ TABLE_NAME_CF= os.environ['TABLE_NAME']
 fields = TABLE_NAME_CF.split('|')
 DATABASE_NAME = fields[0]
 TABLE_NAME = fields[1]
+HOST_FN_NAME = os.environ["HOST_FN_NAME"]
 lambda_client = boto3.client('lambda')
 
 # Loads a json configuration object that defines the data type mappings for each of the valid values of Realtime Log Fields
@@ -34,7 +35,7 @@ def invoke_host_processor(host_details):
         payload = {}
         payload['host_details'] = host_details
 
-        lambda_client.invoke(FunctionName='HostProcessor',
+        lambda_client.invoke(FunctionName=HOST_FN_NAME,
                 InvocationType='Event',
                 Payload=json.dumps(payload))
 
