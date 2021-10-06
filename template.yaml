@@ -12,6 +12,10 @@ Parameters:
     Default: 100
     MinValue: 1
     MaxValue: 100
+  EmailAddress:
+    Type: String
+    Description: 'Email address to which list of blocked ips will be sent'
+    Default: ''
 
 Resources:
   LogProcessor:
@@ -111,13 +115,14 @@ Resources:
       Handler: host_processor.lambda_handler
       Runtime: python3.8
       CodeUri: ./HostProcessor
-      FunctionName: HostProcessor
+      # FunctionName: HostProcessor
       Description: Lambda to Query TimestreamDB and Block IP when reached threshold
       MemorySize: 128
       Timeout: 60
       Environment:
         Variables:
           LOG_LVL: '20'
+          SNS_ARN: !Ref SNSWAFIpBlockNotifiaction
           CONFIGURATION_DYNAMODB: !Ref WAFConfigTable
           BLOCKLIST_DYNAMODB: !Ref WAFBlockHistoryTable
           TIMESTREAM_DB_NAME: !Ref CloudFrontLogsTimeSeriesDb
@@ -128,7 +133,7 @@ Resources:
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
-              Action: 
+              Action:
                 - logs:CreateLogGroup
                 - logs:CreateLogStream
                 - logs:PutDestination
@@ -383,7 +388,6 @@ Resources:
           ContentType: TEXT_HTML
           Content: <html>You are Blocked</html>
       Rules:
-      
         - Name: ip4-forwarded-rule
           Priority: 0
           Statement:
@@ -442,6 +446,14 @@ Resources:
 
 
 
+  SNSWAFIpBlockNotifiaction:
+  Type: AWS::SNS::Topic
+  Properties:
+    # DisplayName: "Waf-Ip-Block-Notification"
+    Subscription: 
+      - Endpoint: !Ref EmailAddress
+        Protocol: 'email'
+
 Outputs:
   CloudWatchMetricsUrl:
     Description: Link to the Amazon CloudWatch namespace where the custom metrics are published by the solution.
@@ -449,7 +461,9 @@ Outputs:
   LogProcessorLogGroup:
     Description: Link to the CloudWatch Log Group for the log processor lambda function where logs are delivered
     Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:log-groups/log-group/$252Faws$252Flambda$252F${LogProcessor}'
+  HostProcessorLogGroup:
+    Description: Link to the CloudWatch Log Group for the host processor lambda function where logs are delivered
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:log-groups/log-group/$252Faws$252Flambda$252F${HostProcessor}'
   TimestreamQueryEditor:
     Description: Link to the Amazon Timestream query editor for the database that was deployed by the solution
     Value: !Sub 'https://console.aws.amazon.com/timestream/home?region=${AWS::Region}#query-editor:/Database/${CloudFrontLogsTimeSeriesDb}'
-    

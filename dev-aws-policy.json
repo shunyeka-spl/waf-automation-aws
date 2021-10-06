@@ -173,7 +173,8 @@
         "iam:GetRolePolicy",
         "iam:PassRole",
         "iam:PutRolePolicy",
-        "iam:TagRole"
+        "iam:TagRole",
+        "iam:DeleteRole"
       ],
       "Resource": "*"
     },
@@ -205,7 +206,8 @@
         "logs:*",
         "s3:*",
         "wafv2:*",
-        "waf:*",                
+        "waf:*",
+        "dynamodb:*",
         "cloudfront:GetCloudFrontOriginAccessIdentityConfig",
         "cloudfront:ListCloudFrontOriginAccessIdentities",        
         "cloudfront:GetOriginRequestPolicyConfig",                
@@ -232,7 +234,25 @@
         "route53:ListHostedZonesByName",
         "route53:ListHostedZones",
         "acm:DescribeCertificate",
-        "acm:ListCertificates"
+        "acm:ListCertificates",
+        "sns:Publish",
+        "sns:DeleteTopic",
+        "sns:CreateTopic",
+        "sns:ConfirmSubscription",
+        "sns:ListTopics",
+        "sns:ListSubscriptions",        
+        "waf-regional:*",
+        "elasticloadbalancing:SetWebACL",                
+        "apigateway:SetWebACL",        
+        "cloudfront:ListDistributionsByWebACLId",        
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics",
+        "ec2:DescribeRegions",
+        "elasticloadbalancing:DescribeLoadBalancers",        
+        "appsync:ListGraphqlApis",
+        "appsync:SetWebACL",
+        "cloudfront:DeleteRealtimeLogConfig"
       ],
       "Resource": "*"
     }

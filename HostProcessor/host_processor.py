@@ -16,7 +16,7 @@ logger.setLevel(int(os.getenv("LOG_LVL", '10')))
 
 TIMESTREAM_DB_NAME = os.environ["TIMESTREAM_DB_NAME"]
 TIMESTREAM_TABLE_NAME = os.environ["TIMESTREAM_TABLE_NAME"]
-
+SNS_ARN = os.environ["SNS_ARN"]
 IPV4SET_NAME, IPV4SET_ID, _ = os.environ['IPV4SET_DETAILS'].split("|")
 IPV6SET_NAME, IPV6SET_ID, _ = os.environ['IPV6SET_DETAILS'].split("|")
 
@@ -136,15 +136,17 @@ def process_host(host: str, distribution: str, duration: str, threshold: int, of
 
         for page in page_iterator:
             column_info = page['ColumnInfo']
+            logger.debug("Col: %s", str(column_info))
             for row in page['Rows']:
-                logger.debug("Row %s", str(row))
+                logger.debug("Row: %s", str(row))
                 ip, version = process_row(column_info, row, threshold, host, distribution)
                 if ip:
                     offending_ips[version]["ips"].add(ip)
 
     except Exception as err:
         logger.exception("ERROR IN TIMESTREAM QUERY")
-        logger.error("Exception while running query: %s", str(err))
+        logger.info(f"Column_info: {column_info}, Row: {row} Threshold: {threshold}, Host: {host}, Distribution: {distribution}")
+        exit(f"Exception while running timestream query: {err}")
     else:
         logger.info("TimeStream Query Success")
         return offending_ips
@@ -164,6 +166,16 @@ def get_config(host: str, distribution: str) -> Tuple[str, int]:
     logger.debug("Get Configurations details from Dynamo db Successfully")
     return response['Item']['duration'], int(response['Item']['threshold'])
 
+def publish_to_sns(sub, msg):
+    topic_arn = SNS_ARN
+    sns = boto3.client("sns")
+    response = sns.publish(
+        TopicArn=topic_arn,
+        Message=msg,
+        Subject=sub
+    )
+
+    logger.info("Published to SNS: %s", str(response))
 
 def lambda_handler(event: str, context) -> None:
     """Main Fn: Adds offending ips to WAf Block List based on threshold"""
@@ -198,3 +210,19 @@ def lambda_handler(event: str, context) -> None:
             logger.info('Updated IPSet %s with %d CIDRs', ip_details["ipset_name"], len(blocked_ips))
         else:
             logger.info("No %s Addresses found", ip_version)
+
+    if offending_ips['IPv4']['ips'] or offending_ips['IPv6']['ips']:
+        sub = f"List of IP's Blocked by WAF"
+        msg = f"""
+            ------------------------------------------------------------------------------------
+            Summary of the process:
+            ------------------------------------------------------------------------------------
+            {'Host':<20}:{host}
+            {'Distribution':<20}:{distribution}
+            {'Threshold':<20}:{threshold}
+            {'Duration':<20}:{duration}
+            {'IPV4':<20}:{offending_ips['IPv4']['ips']}
+            {'IPV6':<20}:{offending_ips['IPv6']['ips']}
+            ------------------------------------------------------------------------------------
+            """
+        publish_to_sns(sub, msg)

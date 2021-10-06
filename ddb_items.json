@@ -1,0 +1,40 @@
+# GO to console - table - add item and paste this json
+# First row
+{
+  "distribution": {
+    "S": "dook605908xyx.cloudfront.net"
+  },
+  "host": {
+    "S": "waftest2.ccrt.us"
+  },
+  "threshold": {
+    "S": "30"
+  },
+  "duration": {
+    "S": "30s"
+  }
+}
+
+# 2 row
+{
+ "distribution": "dook605908xyx.cloudfront.net",
+ "host": "waftest1.ccrt.us",
+ "threshold": "30",
+ "duration": "30s"
+}
+
+# 3 row
+{
+ "distribution": "d2s3uko4c84cf1.cloudfront.net",
+ "host": "waftest3.ccrt.us",
+ "threshold": "30",
+ "duration": "30s"
+}
+
+# 4 row
+{
+ "distribution": "d2s3uko4c84cf1.cloudfront.net",
+ "host": "waftest4.ccrt.us",
+ "threshold": "30",
+ "duration": "30s"
+}
