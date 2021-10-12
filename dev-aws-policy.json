@@ -242,6 +242,7 @@
         "sns:ListTopics",
         "sns:ListSubscriptions",
         "sns:GetTopicAttributes",
+        "sns:Subscribe",
         "waf-regional:*",
         "elasticloadbalancing:SetWebACL",                
         "apigateway:SetWebACL",        
