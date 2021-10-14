@@ -46,18 +46,19 @@ plan
 echo total $# args
 
 IPSET_NAME='IPV4SET'
-IPSET_ID='89f58d97-c397-4c83-8714-fcb666a6a438'
-IP_TO_CHECK="$(curl ifconfig.me -s)/32"
+IPSET_ID='48df0823-098f-4410-bb2a-666bc85741d6'
+IP_TO_CHECK="1.1.1.1/32"
+IP_TO_CHECK="3.3.3.3/32"
  
 echo IP_TO_CHECK = $IP_TO_CHECK
 echo IPSET_NAME = $IPSET_NAME
 echo IPSET_ID = $IPSET_ID
 echo 
  
-if [ -z "$1" ]
-  then
-    printf "Number of requests needed : \n" ; exit 1
-fi
+# if [ -z "$1" ]
+#   then
+#     printf "Number of requests needed : \n" ; exit 1
+# fi
 
 while true
 do
@@ -68,7 +69,7 @@ do
         then
             echo IP ${ONE_IP_ADDRESS} added to waf ip-set
             exit 0
-        else
-            echo try ${i}
+        # else
+        #     echo try ${i}
         fi
 done

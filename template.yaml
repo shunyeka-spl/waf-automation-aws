@@ -123,7 +123,7 @@ Resources:
       Environment:
         Variables:
           LOG_LVL: '20'
-          # SNS_ARN: !Ref SNSWAFIpBlockNotifiaction
+          SNS_ARN: !Ref SNSWAFIpBlockNotifiaction
           THREAD_COUNT: 2
           CONFIGURATION_DYNAMODB: !Ref WAFConfigTable
           BLOCKLIST_DYNAMODB: !Ref WAFBlockHistoryTable
@@ -134,6 +134,11 @@ Resources:
       Policies:
         - Version: 2012-10-17
           Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource:
+                - !Ref SNSWAFIpBlockNotifiaction
             - Effect: Allow
               Action:
                 - logs:CreateLogGroup
@@ -174,6 +179,7 @@ Resources:
                 - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WAFConfigTable}'
             - Effect: Allow
               Action:
+                - dynamodb:GetItem
                 - dynamodb:PutItem
                 - dynamodb:BatchWriteItem
               Resource: 
@@ -326,13 +332,13 @@ Resources:
         MemoryStoreRetentionPeriodInHours: 24
         MagneticStoreRetentionPeriodInDays: 7
 
-  # SNSWAFIpBlockNotifiaction:
-  #   Type: AWS::SNS::Topic
-  #   Properties:
-  #     DisplayName: "Waf-Ip-Block-Notification"
-  #     Subscription:
-  #       - Endpoint: !Ref EmailAddress
-  #         Protocol: 'email'
+  SNSWAFIpBlockNotifiaction:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Waf-Ip-Block-Notification"
+      Subscription:
+        - Endpoint: !Ref EmailAddress
+          Protocol: 'email'
 
   # WAF Resources, Will only work in region us-east-1
   WAFIpSetIpV4:
