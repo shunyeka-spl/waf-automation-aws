@@ -1,18 +1,26 @@
 # CloudFront Real-Time Monitoring Solution
-[CloudFront real-time logs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html) enables developers to analyze, monitor, and take action based on content delivery performance. This project provides a serverless solution for processing these logs in real-time to generate custom metrics for real-time dashboards and alerting. This solution may be especially useful to customers that do not have an existing client telemetry solution or may not have the ability to configure data collection on the client and want to analyze CloudFront performance in real-time. This solution is also useful for customers that want to analyze CloudFront performance metrics with more granularity (i.e. per country, URI, edge location and more) than is provided by the default CloudWatch metrics that are provided as metrics aggregated for the entire Distribution.
+[CloudFront real-time logs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html) enables developers to analyze, monitor, and take action based on content delivery performance. This project provides a serverless solution for processing these logs in real-time to generate custom metrics for real-time logs, analysis, action and alerting. This solution may be especially useful to customers want to analyze CloudFront, Waf performance in real-time. This solution is also useful for customers that want to analyze CloudFront performance metrics with more granularity (i.e. per country, URI, edge location and more) that are metrics aggregated for the entire Distribution.
 
-This project provides a serverless solution to begin processing CloudFront real-time log data in seconds and makes it easy to manage without the need to provision complex infrastructure. The solution creates a CloudFront Real-Time Logs configuration that you can attach to your existing CloudFront Distribution(s). Once attached to your distribution, the log configuration begins sending request log records to a Kinesis Data Stream using a configurable sampling rate. The solution deploys AWS Lambda to process the real-time logs from the stream and convert them into time-series records that are ingested into [Amazon Timestream](https://aws.amazon.com/timestream/), a scalable and serverless time-series database. Timestream provides a cost-effective solution for storing and analyzing this type of time-series data with flexible storage tiering, a query engine that supports SQL, and integration with a variety of popular AWS and open-source tools, including [Amazon QuickSight](https://aws.amazon.com/quicksight/), [Grafana](https://grafana.com/) and more.
+This project provides a serverless solution to begin processing CloudFront real-time log data in seconds and makes it easy to manage without the need to provision complex infrastructure. The solution creates a CloudFront Real-Time Logs configuration that you can attach to your existing CloudFront Distribution(s). Once attached to your distribution, the log configuration begins sending request log records to a Kinesis Data Stream using a configurable sampling rate. The solution deploys AWS `LogProcessor` Lambda to process the real-time logs from the stream and convert them into time-series records that are ingested into [Amazon Timestream](https://aws.amazon.com/timestream/), a scalable and serverless time-series database. Than `HostProcessor` Lambda gets invoked. The configuration details of `host, distribution, threshold, duration` are fetch from Dynamo Db `waf-config` Table. It queries the Timestream Database to find If any Ip is requesting our distribution more than the threshold specified. If Ip is found offending than it is added to Waf IpSet and Dynamo DB `waf-block-ip` Table and a alert email is sent on the specified mail. Entire process is happening Real time and Automated. 
+
+#### The Manual touch is required when:
+- To change the configuration details of distribution or host in `[waf-config](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#item-explorer?initialTagKey=&maximize=true&table=waf-config)` Dynamodb table. 
+- To configure which cloudfront logs will be sent to Timestream DB. [(Attaching CloudFront to Kineses Real time Logs)](https://console.aws.amazon.com/cloudfront/v3/home?region=us-east-1#/logs)
+- WAF Rules should be applied on which Cloudfront. [(Attaching CloudFront to WAF)](https://console.aws.amazon.com/wafv2/homev2/web-acls?region=global)
+
 
 ## Features
 
 * Provides an easy to use integration for monitoring existing CloudFront Distributions
 * Built using the AWS Serverless Application Model (AWS SAM) to make it easy to manage the solution using infrastructure as code
 * Solution enables operators to monitor metrics with rich high-cardinality metadata by ingestinig the log records as measures and dimensions into time-series database.
-* Can be easily extended with custom tools to monitor the metrics using the AWS SDK, JDBC connector, or with flexible set of open-source integrations.
+* Blocks any Offending IP in Realtime with email alerts.
+* Can be easily extended to monitor the metrics using the AWS SDK, Grafana, AWS QuickSight.
 
 ## Architecture
 
 ![Architecture](./cloudfront-realtime-monitoring-diagram.png "Solution Reference Architecture")
+![Architecture](./WAF automation_V3.png "Solution Reference Architecture")
 
 ## AWS Services
 
@@ -20,15 +28,10 @@ This project provides a serverless solution to begin processing CloudFront real-
 - AWS Lambda
 - Amazon Kinesis Data Streams
 - Amazon Timestream
+- Wab Application Firewall (It's scope is Global for CloudFront)
+- Dynamo DB
+- SNS
 - AWS Serverless Application Model (AWS SAM)
-
-### Real-time data processing
-Each CloudFront Real-time log record received by the solution's Lambda function is processed and  ingested into Amazon Timestream as a data record. The Lambda Function performs the following processing steps for each record:
-
-* Convert each real-time log record from tab-delimited format to structured JSON format
-* The name of each field in the source log record is kept the same when ingested into Timestream. However, Lambda converts dashes (`-`) into underscores (`_`) to conform to Timestream's field name requirements.
-* Each field is loaded into Timestream as a **Dimension**. The `sc_bytes` field is loaded into Timestream as a **Measure** (integer).
-* The headers (`cs_headers`) and header names (`cs_header_names`) are removed before the record is written to Timestream. Due to the potential size and number of headers, these fields are removed to reduce costs. The Python code in the Lambda function includes commented code that can be modified if these fields are desired.
 
 ## Getting Started
 
@@ -41,14 +44,10 @@ This solution is deployed using the AWS Serverless Application Model (AWS SAM). 
 Note that Docker is also required to use AWS SAM CLI and is included in the above steps. After installation, make sure Docker is running on your local machine before proceeding.
 
 ### Clone the repository
-#### Clone with SSH
-```bash
-git clone git@github.com:aws-samples/aws-cloudfront-realtime-monitoring.git
-```
 
 #### Clone with HTTPS
 ```
-git clone https://github.com/aws-samples/aws-cloudfront-realtime-monitoring.git
+git clone https://github.com/shunyeka-spl/waf-automation-aws.git
 ```
 
 ### Build
@@ -57,7 +56,7 @@ The AWS SAM CLI provides the necessary components to build the dependencies for 
 Navigate to the cloned folder:
 
 ```bash
-cd aws-cloudfront-realtime-monitoring
+cd waf-automation-aws
 ```
 
 Build the serverless application using AWS SAM:
@@ -73,6 +72,13 @@ When you initially deploy the SAM template, be sure to use the ```--guided``` fl
 
 ```bash
 sam deploy --guided
+```
+
+When Updating application. A Single command to validate, build and deploy sam template, to be used when code is updated and want to depoy the updated changes in application.
+```bash
+sam validate && sam build --use-container && sam deploy --no-confirm-changeset
+
+# --no-confirm-changeset = skips the promt for approval to deploy changeset
 ```
 
 Follow the guided steps to deploy the stack, including creating an S3 Bucket for the build artifacts to be stored in the cloud. Instructions for this process can be found [here](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-deploying.html).
