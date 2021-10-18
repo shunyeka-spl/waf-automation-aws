@@ -1,7 +1,9 @@
 # CloudFront Real-Time Monitoring Solution
 [CloudFront real-time logs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html) enables developers to analyze, monitor, and take action based on content delivery performance. This project provides a serverless solution for processing these logs in real-time to generate custom metrics for real-time logs, analysis, action and alerting. This solution may be especially useful to customers want to analyze CloudFront, Waf performance in real-time. This solution is also useful for customers that want to analyze CloudFront performance metrics with more granularity (i.e. per country, URI, edge location and more) that are metrics aggregated for the entire Distribution.
 
-This project provides a serverless solution to begin processing CloudFront real-time log data in seconds and makes it easy to manage without the need to provision complex infrastructure. The solution creates a CloudFront Real-Time Logs configuration that you can attach to your existing CloudFront Distribution(s). Once attached to your distribution, the log configuration begins sending request log records to a Kinesis Data Stream using a configurable sampling rate. The solution deploys AWS `LogProcessor` Lambda to process the real-time logs from the stream and convert them into time-series records that are ingested into [Amazon Timestream](https://aws.amazon.com/timestream/), a scalable and serverless time-series database. Than `HostProcessor` Lambda gets invoked. The configuration details of `host, distribution, threshold, duration` are fetch from Dynamo Db `waf-config` Table. It queries the Timestream Database to find If any Ip is requesting our distribution more than the threshold specified. If Ip is found offending than it is added to Waf IpSet and Dynamo DB `waf-block-ip` Table and a alert email is sent on the specified mail. Entire process is happening Real time and Automated. 
+This project provides a serverless solution to begin processing CloudFront real-time log data in seconds and makes it easy to manage without the need to provision complex infrastructure. The solution creates a CloudFront Real-Time Logs configuration that you can attach to your existing CloudFront Distribution(s). Once attached to your distribution, the log configuration begins sending request log records to a Kinesis Data Stream using a configurable sampling rate. 
+
+The solution deploys AWS 'LogProcessor' Lambda to process the real-time logs from the stream and convert them into time-series records that are ingested into [Amazon Timestream](https://aws.amazon.com/timestream/), a scalable and serverless time-series database. Than 'HostProcessor' Lambda gets invoked. The configuration details like 'host, distribution, threshold, duration' are fetch from Dynamo Db `waf-config` Table. It queries the Timestream Database to find If any Ip is requesting our distribution more than the threshold specified. If Ip is found offending than it is added to Waf IpSet and Dynamo DB `waf-block-ip` Table and a alert email is sent on the specified mail. Entire process is happening Real time. 
 
 #### The Manual touch is required when:
 - To change the configuration details of distribution or host in [waf-config](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#item-explorer?initialTagKey=&maximize=true&table=waf-config) Dynamodb table. 
@@ -19,8 +21,8 @@ This project provides a serverless solution to begin processing CloudFront real-
 
 ## Architecture
 
-![Architecture](./cloudfront-realtime-monitoring-diagram.png "Solution Reference Architecture")
-![Architecture](./waf_automation_v3.png "Solution Reference Architecture")
+![Architecture](./Images/cloudfront-realtime-monitoring-diagram.png "Solution Reference Architecture")
+![Architecture](./Images/waf_automation_v3.png "Solution Reference Architecture")
 
 ## AWS Services
 
@@ -48,7 +50,7 @@ Note that Docker is also required to use AWS SAM CLI and is included in the abov
 git clone https://github.com/shunyeka-spl/waf-automation-aws.git
 ```
 
-### Build
+### [Build](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html)
 The AWS SAM CLI provides the necessary components to build the dependencies for the Python Lambda Functions defined in this solution using the *sam build* command. It also copies the source code into local staging folders under *.aws-sam/build* before it zips and uploads the function source to Amazon S3.
 
 Navigate to the cloned folder:
@@ -65,7 +67,7 @@ sam build --use-container
 
 > **Note:** Using the ```--use-container``` flag informs the SAM CLI to build your Lambda Function inside of a local Docker container using the language runtime that is defined for the Lambda function(s) in the template. This helps prevent issues that may occur from building the functions using a local version of Python on your local machine that is different than the runtime Lambda uses to execute your function in AWS. This process may take a few minutes to execute because the appropriate Docker Image(s) need to be pulled to your local machine to execute the build.
 
-### Deploy
+### [Deploy](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html)
 When you initially deploy the SAM template, be sure to use the ```--guided``` flag as shown below which generates a local configuration file *samconfig.toml* for your SAM project.  This file is ignored by the included *.gitignore*. Future deployments can use the simplified `sam deploy` command which will use the generated configuration file *samconfig.toml*.
 
 ```bash
@@ -104,13 +106,10 @@ Configuring SAM deploy
         Learn more about samconfig.toml syntax at 
         https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
 ```
+#### Approve the ChangeSet
 
-When Updating application. A Single command to validate, build and deploy sam template, to be used when code is updated and want to depoy the new version of application.
-```bash
-sam validate && sam build --use-container && sam deploy --no-confirm-changeset
+![sam template changeset](./Images/sam_changeset.png)
 
-# --no-confirm-changeset = skips the promt for approval to deploy changeset
-```
 
 Follow the guided steps to deploy the stack, including creating an S3 Bucket for the build artifacts to be stored in the cloud. Instructions for this process can be found [here](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-deploying.html).
 
@@ -119,6 +118,15 @@ Follow the guided steps to deploy the stack, including creating an S3 Bucket for
 - **KinesisStreamShards**: Integer value representing the number of shards to provision for the deployed Kinesis Data Stream. Defaults to `1`. Instructions are provided in the [CloudFront documentation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html#understand-real-time-log-config-endpoint) for estimating the number of shards needed for a deployment.
 
 - **RealtimeLogsSamplingPercentage**: Integer value between 1-100 that represents the percentage of viewer requests to CloudFront to sample for generating realtime log records. Defaults to `5` (5%). This value is used when CloudFormation creates the Realtime Log Configuration.
+
+#### Deploy a New Version
+
+When Updating application. A Single command to validate, build and deploy sam template. The already made configuration file `samconfig.toml` will be used by default.
+```bash
+sam validate && sam build --use-container && sam deploy --no-confirm-changeset
+
+# --no-confirm-changeset = skips the promt for approval to deploy changeset
+```
 
 Navigate to the AWS CloudFormation console and review the stack resources that were created for you. 
 
@@ -151,29 +159,7 @@ ORDER by binned_time, "x_edge_location"
 
 The query should return results similar to below:
 
-![Timestream](./timestream-query-results.png "Timestream Query Results")
-
-## Monitor with Grafana (Optional)
-Grafana is a popular open-source tool for analytics and monitoring and can be easily installed on your local machine, or hosted as a server in AWS. Amazon Timestream is [integrated with Grafana as a plugin](https://docs.aws.amazon.com/timestream/latest/developerguide/Grafana.html). 
-
-1. Follow the [Grafana instructions](https://grafana.com/docs/grafana/latest/installation/) to install it on your local machine (you can skip this setup if you already have a Grafana deployment).
-2. Install the [Grafana Plugin for Amazon Timestream](https://grafana.com/grafana/plugins/grafana-timestream-datasource) so that the tool can extract time-series metrics as a data source.
-3. Once you have downloaded and configured Grafana, you can begin developing queries and graphing metrics. Below is an example query configuration that you can use to graph the bytes downloaded by edge location:
-	![Grafana Query Setup](./grafana-query-setup.png "Monitor with Grafana")
-	
-	```
-	SELECT 
-    x_edge_location, 
-    CREATE_TIME_SERIES(time, measure_value::bigint) as edge_location
-	FROM "$__database"."$__table"
-	WHERE $__timeFilter
-	    AND measure_name = '$__measure'
-	GROUP BY x_edge_location
-	```
-4. Once saved, you can add this to a Grafana dashboard as a `Graph` visualization type as shown below:
-	![Grafana Dashboard](./grafana-dashboard-example.png "Monitor with Grafana")
-
-	> Note: Your graph will probably look more exciting than this example. This is a simple example of a single small file that is being downloaded by clients.
+![Timestream](./Images/timestream-query-results.png "Timestream Query Results")
 
 ## Customize the solution (optional)
 
@@ -199,15 +185,29 @@ CloudFront does not include field headers/names in the logs that are delivered t
 - Open the field mapping configuration file located at ```./log-processor/config/cf_realtime_log_field_mappings.json```. This file contains a mapping of all available CloudFront realtime log fields and the data type that should be used to process the field. 
 - Confirm that any fields you added to the CloudFront Realtime Configuration in Step 1 are defined in this JSON config with a data type, otherwise the Lambda function will not be able to process the field. It is possible that CloudFront may add additional log fields in the future. If so, before you will be able to use those new fields you will need to define those fields and data types in this configuration file.
 
+**Step 3: Modify the host processor Lambda function**
+
+This Function is responsible for 
+
+- Querying the Timestream Database for check if any ip request count is greater threshold.
+- Multithreading is used in Function to increase the efficiency as it is querying the DB for IPv4 and Ipv6 IP's in parallel.
+- Updating the Waf IpSet with the offending Ip with retry mechanism.
+- Adding the IP entry in Dynamo DB table 'waf-block-history'.
+- Sending one mail per ip blocked.
+
 Use this opportunity to make any other processing changes to the code as you like.
 
-**Step 2: Build/Deploy the SAM template**
+**Step 4: Build/Deploy the SAM template**
 
 Once you have made these changes you can execute ```sam build --use-container && sam deploy``` to deploy your modified version of the solution to AWS. These two commands will build, package and deploy the solution's Lambda functions and other AWS resources as a CloudFormation stack.
 
-**Step 3: Modify the fields in the CloudFront real-time logs configuration**
+**Step 5: Modify the fields in the CloudFront real-time logs configuration**
 
 Once you have deployed the modified solution, you can attach your Realtime Log Configuration to one or more of your CloudFront Distributions in order to generate real-time metrics.
+
+**Step 6: Attach the CloudFront to WAF Web Acl**
+
+Once you have deployed the modified solution, you can attach your CloudFront Distributions to WAF WebACL. In Console Select Region as Cloudfront (Global). So, If an IP is blocked, It will show 403 unauthorized message.
 
 </details>
 
@@ -215,7 +215,7 @@ After you have setup the real-time logs configuration for your CloudFront distri
 
 ## Troubleshooting
 
-If you encounter any issues or are not receiving data in Timestream, you can use CloudWatch Logs to investigate any processing issues with the solution's Lambda Function. The **LogProcessor** Lambda Function generates logs that are stored in Amazon CloudWatch. The log group can be found in the Outputs tab of the CloudFormation Stack.  
+If you encounter any issues or are not receiving data in Timestream, you can use CloudWatch Logs to investigate any processing issues with the solution's Lambda Function. The **LogProcessor** and **HostProcessor**Lambda Function generates logs that are stored in Amazon CloudWatch. The log group can be found in the Outputs tab of the CloudFormation Stack.  
 
 ## Contributing
 
@@ -231,7 +231,7 @@ Due to the fact that CloudFront Realtime Log fields are strictly ordered but do 
 
 ### 3) What is the estimated cost of using this solution? 
 
-The cost of running this solution will depend on the amount of log records that are ingested from CloudFront, the number of fields included in those records, and whether or not you make any customizations to the data that is loaded into Amazon Timestream. The cost will also depend on how frequently you query the data in Timestream. 
+The cost of running this solution will depend on the amount of log records that are ingested from CloudFront, the number of fields included in those records, and whether or not you make any customizations to the data that is loaded into Amazon Timestream, how frequently you query the data in Timestream, The amount of time waf ipset is updated, the amount of Get, Put queries made to Dynamo DB, Sending a mail through SNS. 
 
 **Solution default settings:**
 

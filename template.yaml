@@ -118,7 +118,7 @@ Resources:
       CodeUri: ./HostProcessor
       FunctionName: HostProcessor
       Description: Lambda to Query TimestreamDB and Block IP when reached threshold
-      MemorySize: 128
+      MemorySize: 256
       Timeout: 60
       Environment:
         Variables:
