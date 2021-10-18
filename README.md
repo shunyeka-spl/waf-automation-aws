@@ -4,7 +4,7 @@
 This project provides a serverless solution to begin processing CloudFront real-time log data in seconds and makes it easy to manage without the need to provision complex infrastructure. The solution creates a CloudFront Real-Time Logs configuration that you can attach to your existing CloudFront Distribution(s). Once attached to your distribution, the log configuration begins sending request log records to a Kinesis Data Stream using a configurable sampling rate. The solution deploys AWS `LogProcessor` Lambda to process the real-time logs from the stream and convert them into time-series records that are ingested into [Amazon Timestream](https://aws.amazon.com/timestream/), a scalable and serverless time-series database. Than `HostProcessor` Lambda gets invoked. The configuration details of `host, distribution, threshold, duration` are fetch from Dynamo Db `waf-config` Table. It queries the Timestream Database to find If any Ip is requesting our distribution more than the threshold specified. If Ip is found offending than it is added to Waf IpSet and Dynamo DB `waf-block-ip` Table and a alert email is sent on the specified mail. Entire process is happening Real time and Automated. 
 
 #### The Manual touch is required when:
-- To change the configuration details of distribution or host in `[waf-config](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#item-explorer?initialTagKey=&maximize=true&table=waf-config)` Dynamodb table. 
+- To change the configuration details of distribution or host in [waf-config](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#item-explorer?initialTagKey=&maximize=true&table=waf-config) Dynamodb table. 
 - To configure which cloudfront logs will be sent to Timestream DB. [(Attaching CloudFront to Kineses Real time Logs)](https://console.aws.amazon.com/cloudfront/v3/home?region=us-east-1#/logs)
 - WAF Rules should be applied on which Cloudfront. [(Attaching CloudFront to WAF)](https://console.aws.amazon.com/wafv2/homev2/web-acls?region=global)
 
@@ -20,7 +20,7 @@ This project provides a serverless solution to begin processing CloudFront real-
 ## Architecture
 
 ![Architecture](./cloudfront-realtime-monitoring-diagram.png "Solution Reference Architecture")
-![Architecture](./WAF automation_V3.png "Solution Reference Architecture")
+![Architecture](./waf_automation_v3.png "Solution Reference Architecture")
 
 ## AWS Services
 
@@ -28,7 +28,7 @@ This project provides a serverless solution to begin processing CloudFront real-
 - AWS Lambda
 - Amazon Kinesis Data Streams
 - Amazon Timestream
-- Wab Application Firewall (It's scope is Global for CloudFront)
+- Web Application Firewall (It's scope is Global for CloudFront)
 - Dynamo DB
 - SNS
 - AWS Serverless Application Model (AWS SAM)
@@ -44,8 +44,6 @@ This solution is deployed using the AWS Serverless Application Model (AWS SAM). 
 Note that Docker is also required to use AWS SAM CLI and is included in the above steps. After installation, make sure Docker is running on your local machine before proceeding.
 
 ### Clone the repository
-
-#### Clone with HTTPS
 ```
 git clone https://github.com/shunyeka-spl/waf-automation-aws.git
 ```
@@ -72,6 +70,38 @@ When you initially deploy the SAM template, be sure to use the ```--guided``` fl
 
 ```bash
 sam deploy --guided
+
+Configuring SAM deploy
+======================
+
+        Looking for config file [samconfig.toml] :  Found
+        Reading default arguments  :  Success
+
+        Setting default arguments for 'sam deploy'
+        =========================================
+        Stack Name [waf-automation-2]: waf-stack
+        AWS Region [us-east-1]: 
+        Parameter KinesisStreamShards [2]: 1
+        Parameter RealtimeLogsSamplingPercentage [2]: 5
+        Parameter EmailAddress [email@gmail.com]: hitesh@shunyeka.com
+        #Shows you resources changes to be deployed and require a 'Y' to initiate deploy
+        Confirm changes before deploy [Y/n]: Y
+        #SAM needs permission to be able to create roles to connect to the resources in your template
+        Allow SAM CLI IAM role creation [Y/n]: Y
+        Save arguments to configuration file [Y/n]: Y
+        SAM configuration file [samconfig.toml]: 
+        SAM configuration environment [default]: 
+
+        Looking for resources needed for deployment: Found!
+
+                Managed S3 bucket: aws-sam-cli-managed-default-samclisourcebucket-1c344o97df3f8
+                A different default S3 bucket can be set in samconfig.toml
+
+        Saved arguments to config file
+        Running 'sam deploy' for future deployments will use the parameters saved above.
+        The above parameters can be changed by modifying samconfig.toml
+        Learn more about samconfig.toml syntax at 
+        https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
 ```
 
 When Updating application. A Single command to validate, build and deploy sam template, to be used when code is updated and want to depoy the updated changes in application.
@@ -211,7 +241,3 @@ The cost of running this solution will depend on the amount of log records that 
 * CloudFront Real-time Log Sampling Rate: `5%`
 
 The [documentation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html) for CloudFront Realtime logs includes a calculation for determining the number of shards needed for Kinesis Streams which will help you estimate the cost of Kinesis. Additionally, when estimating costs for deploying this solution, you should also account for costs associated with AWS Lambda and Amazon Timestream. Each CloudFront realtime log record that is ingested into the solution's Kinesis Data Stream is consumed by AWS Lambda and ingested into Amazon Timestream. To reduce costs it is recommended to configure a low CloudFront Realtime log sampling rate which is configurable as a parameter in the CloudFormation template (defaults to 5%). It is also recommended to reduce any unnecessary fields from the realtime log configuration to reduce the amount of data that is ingested into the solution. See the section on customizing the solution to modify the fields.
-
-## License
-
-This library is licensed under the MIT-0 License. See the LICENSE file.

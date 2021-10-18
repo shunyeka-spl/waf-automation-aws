@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: This solution deploys a solution for converting CloudFront Realtime Logs into time-series metrics. It deploys an Amazon Kinesis Data Stream, AWS Lambda Function and Amazon Timestream Database.
+Description: This solution deploys a solution for converting CloudFront Realtime Logs into time-series metrics then processing the metrics to find offending IP's to block. It deploys an Amazon Kinesis Data Stream, AWS Lambda Function and Amazon Timestream Database, AWS Web Application Firewall, SNS Topic, Dynamo DB.
 Parameters:
   KinesisStreamShards:
     Description: Number of shards to provision for the CloudFront Real Time Logs Kinesis Data Stream
@@ -9,12 +9,12 @@ Parameters:
   RealtimeLogsSamplingPercentage:
     Description: The sampling rate (expressed as integer or float value between 1-100) to use for the Real-time Logs Configuration. This value will be set in the Real-time Logs Configuration. Defaults to 5 (5%) sampling rate.
     Type: Number
-    Default: 100
+    Default: 4
     MinValue: 1
     MaxValue: 100
   EmailAddress:
     Type: String
-    Description: 'Email address to send list of blocked ips'
+    Description: "Email address to send Alerts of Blocked IP's"
     Default: ''
 
 Resources:
@@ -329,8 +329,8 @@ Resources:
     Properties:
       DatabaseName: !Ref CloudFrontLogsTimeSeriesDb
       RetentionProperties:
-        MemoryStoreRetentionPeriodInHours: 24
-        MagneticStoreRetentionPeriodInDays: 7
+        MemoryStoreRetentionPeriodInHours: 1
+        MagneticStoreRetentionPeriodInDays: 1
 
   SNSWAFIpBlockNotifiaction:
     Type: AWS::SNS::Topic
@@ -369,7 +369,7 @@ Resources:
     Properties:
       Name: WebACL-Cloudfront
       Scope: CLOUDFRONT
-      Description: Blocks IP When requests greater than threshold
+      Description: Blocks IP When requests are greater than threshold
       DefaultAction:
         Allow: {}  # allow all
       VisibilityConfig:
