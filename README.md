@@ -70,7 +70,10 @@ When you initially deploy the SAM template, be sure to use the ```--guided``` fl
 
 ```bash
 sam deploy --guided
+```
 
+#### The Output will be
+```
 Configuring SAM deploy
 ======================
 
@@ -79,18 +82,16 @@ Configuring SAM deploy
 
         Setting default arguments for 'sam deploy'
         =========================================
-        Stack Name [waf-automation-2]: waf-stack
-        AWS Region [us-east-1]: 
-        Parameter KinesisStreamShards [2]: 1
-        Parameter RealtimeLogsSamplingPercentage [2]: 5
-        Parameter EmailAddress [email@gmail.com]: hitesh@shunyeka.com
-        #Shows you resources changes to be deployed and require a 'Y' to initiate deploy
-        Confirm changes before deploy [Y/n]: Y
-        #SAM needs permission to be able to create roles to connect to the resources in your template
-        Allow SAM CLI IAM role creation [Y/n]: Y
-        Save arguments to configuration file [Y/n]: Y
-        SAM configuration file [samconfig.toml]: 
-        SAM configuration environment [default]: 
+        Stack Name [waf-automation-2]: waf-stack              # Cloud Formation Stack Name
+        AWS Region [us-east-1]:                               # Press enter to choose the default value. This Template will only work in Region us-east-1
+        Parameter KinesisStreamShards [2]: 1                  # Number of Kineses Shards that will Transfer Logs to Timestream ( 1 Shard can Transfer 1K Messages in 1 sec approx)
+        Parameter RealtimeLogsSamplingPercentage [2]: 5       # A Single GET request can make 100 or more logs. So, we generally set it between 1-5 %
+        Parameter EmailAddress [email@gmail.com]: hitesh@shunyeka.com        # Email Address to send IP Blocked Alerts 
+        Confirm changes before deploy [Y/n]: Y                # Shows you resources changes to be deployed and require a 'Y' to initiate deploy
+        Allow SAM CLI IAM role creation [Y/n]: Y              # SAM needs permission to be able to create roles to connect to the resources in your template
+        Save arguments to configuration file [Y/n]: Y         # Saves the above arguments in the configuration file
+        SAM configuration file [samconfig.toml]:              # Press Enter to choose the default. sam cli always looks for samconfig.toml file when we do sam deploy, custom conf file can be passed by using --config-file flag
+        SAM configuration environment [default]:              # Press Enter to choose the default. Which profile to use to deploy the sam template
 
         Looking for resources needed for deployment: Found!
 
@@ -104,7 +105,7 @@ Configuring SAM deploy
         https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
 ```
 
-When Updating application. A Single command to validate, build and deploy sam template, to be used when code is updated and want to depoy the updated changes in application.
+When Updating application. A Single command to validate, build and deploy sam template, to be used when code is updated and want to depoy the new version of application.
 ```bash
 sam validate && sam build --use-container && sam deploy --no-confirm-changeset
 
