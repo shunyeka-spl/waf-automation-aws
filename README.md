@@ -21,7 +21,6 @@ The solution deploys AWS 'LogProcessor' Lambda to process the real-time logs fro
 
 ## Architecture
 
-![Architecture](./Images/cloudfront-realtime-monitoring-diagram.png "Solution Reference Architecture")
 ![Architecture](./Images/waf_automation_v3.png "Solution Reference Architecture")
 
 ## AWS Services
@@ -39,16 +38,37 @@ The solution deploys AWS 'LogProcessor' Lambda to process the real-time logs fro
 
 This solution is deployed using the AWS Serverless Application Model (AWS SAM). AWS SAM is an open-source framework that makes it easy to build serverless applications on AWS and provides a template specification that is built on top of AWS CloudFormation.
 
-### Pre-requisites
+### Installing Pre-requisites
 
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
 
+### [Installing Docker]()
 Note that Docker is also required to use AWS SAM CLI and is included in the above steps. After installation, make sure Docker is running on your local machine before proceeding.
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+docker version
+sudo systemctl start docker
+sudo systemctl enable docker
+```
+
+### [Install Sam Cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install-linux.html#serverless-sam-cli-install-linux-sam-cli)
+
+Installation for Linux x86_64 architecture
+
+```bash
+curl -L https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip -o ./aws-sam-cli-linux-x86_64.zip
+unzip aws-sam-cli-linux-x86_64.zip -d sam-installation
+sudo ./sam-installation/install
+sam --version
+```
 
 ### Clone the repository
 ```
 git clone https://github.com/shunyeka-spl/waf-automation-aws.git
 ```
+
 
 ### [Build](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-build.html)
 The AWS SAM CLI provides the necessary components to build the dependencies for the Python Lambda Functions defined in this solution using the *sam build* command. It also copies the source code into local staging folders under *.aws-sam/build* before it zips and uploads the function source to Amazon S3.
@@ -74,7 +94,7 @@ When you initially deploy the SAM template, be sure to use the ```--guided``` fl
 sam deploy --guided
 ```
 
-#### The Output will be
+#### Provide all the input values
 ```
 Configuring SAM deploy
 ======================
@@ -119,6 +139,24 @@ Follow the guided steps to deploy the stack, including creating an S3 Bucket for
 
 - **RealtimeLogsSamplingPercentage**: Integer value between 1-100 that represents the percentage of viewer requests to CloudFront to sample for generating realtime log records. Defaults to `5` (5%). This value is used when CloudFormation creates the Realtime Log Configuration.
 
+- **EmailAddress**: The Email Address where Blocked IP Notification will be sent.
+
+#### General samlconfig.toml file
+
+```samlconfig.toml
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "waf-stack"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1c344o97df3f8"
+s3_prefix = "waf-stack"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "KinesisStreamShards=\"1\" RealtimeLogsSamplingPercentage=\"5\" EmailAddress=\"email@host.com\""
+confirm_changeset = true
+```
+
 #### Deploy a New Version
 
 When Updating application. A Single command to validate, build and deploy sam template. The already made configuration file `samconfig.toml` will be used by default.
@@ -143,23 +181,19 @@ Once the solution is deployed and you have attached your distribution to the Rea
 You can copy the below query into the query editor and select **Run**. Be sure to replace the database and table values with your own in the `FROM` clause.
 
 ```
--- Get the sum of bytes downloaded by hour for each CloudFront Edge Location over the last 24 hours
-SELECT 
-    bin(time, 1h) as binned_time,
-    SUM(
-      CASE WHEN measure_name = 'sc_bytes' THEN measure_value::bigint ELSE NULL END 
-    ) AS sum_bytes_downloaded,
-    "x_edge_location"
+-- Get the number of requests on all the Cloudfront distribution over the last 15 minutes
+
+SELECT c_ip, cs_host, cs_uri_stem, x_host_header, c_ip_version, COUNT(c_ip) AS Frequency 
 FROM "<TIMESTREAM DATABASE NAME>"."<TIMESTREAM TABLE NAME>"
-WHERE time >= ago(24h)
-AND measure_name IN ('sc_bytes')
-GROUP BY "x_edge_location", bin(time, 1h)
-ORDER by binned_time, "x_edge_location"
+WHERE time between ago(15m) and now() AND c_ip != '-' 
+GROUP BY c_ip,cs_host,cs_uri_stem,c_ip_version,x_host_header 
+ORDER BY Frequency 
+DESC
 ```
 
 The query should return results similar to below:
 
-![Timestream](./Images/timestream-query-results.png "Timestream Query Results")
+![Timestream](./Images/timestream_rows.png "Timestream Query Results")
 
 ## Customize the solution (optional)
 
@@ -215,11 +249,7 @@ After you have setup the real-time logs configuration for your CloudFront distri
 
 ## Troubleshooting
 
-If you encounter any issues or are not receiving data in Timestream, you can use CloudWatch Logs to investigate any processing issues with the solution's Lambda Function. The **LogProcessor** and **HostProcessor**Lambda Function generates logs that are stored in Amazon CloudWatch. The log group can be found in the Outputs tab of the CloudFormation Stack.  
-
-## Contributing
-
-See [CONTRIBUTING](CONTRIBUTING.md) for more information.
+If you encounter any issues or are not receiving data in Timestream, you can use CloudWatch Logs to investigate any processing issues with the solution's Lambda Function. The **LogProcessor** and **HostProcessor**Lambda Function generates logs that are stored in Amazon CloudWatch. The log group can be found in the Outputs tab of the CloudFormation Stack.
 
 ## Frequently Asked Questions (FAQ)
 
@@ -229,16 +259,42 @@ CloudFront provides two forms of logging, including real-time logs which are del
 ### 2) How can I update the solution?
 Due to the fact that CloudFront Realtime Log fields are strictly ordered but do not include self-defining header names, this solution treats a Realtime Log Configuration, Kinesis Stream, and Lambda Function as a tightly coupled single unit of deployment for the purposes of infrastructure management. If you intend to make any additions/removals to the CloudFront Realtime Log fields in a previously deployed stack, it is recommended to deploy those changes as a new separate CloudFormation stack, which will result in a new Timestream database and table that is used for that stack's time-series metrics. This recommendation will help avoid undesirable behaviors such as multiple log records in a Kinesis batch that have different fields which may result in processing errors in the function. Once the new stack is deployed you can attach it your CloudFront Distribution and detach the old real-time configuration, then delete the old stack. Due to the fact that each stack publishes metrics to its own Timestream database table, metrics should remain accurate during a migration and this process should enable you to perform a "blue/green" deployment strategy for changes to your real-time monitoring solution.
 
-### 3) What is the estimated cost of using this solution? 
-
-The cost of running this solution will depend on the amount of log records that are ingested from CloudFront, the number of fields included in those records, and whether or not you make any customizations to the data that is loaded into Amazon Timestream, how frequently you query the data in Timestream, The amount of time waf ipset is updated, the amount of Get, Put queries made to Dynamo DB, Sending a mail through SNS. 
+### 3) What is the estimated cost of using this solution?
+The cost of running this solution will depend on the amount of log records that are ingested from CloudFront, the number of fields included in those records, and whether or not you make any customizations to the data that is loaded into Amazon Timestream, how frequently you query the data in Timestream, The amount of time waf ipset is updated, the amount of Get, Put queries made to Dynamo DB. Also the number of mails send SNS. 
 
 **Solution default settings:**
 
 * Lambda max batch size: `1000`
 * Kinesis Data Stream Shards: `1`
 * Timestream writes per batch: `100`
-* CloudFront Real-time Log Fields: `All` (as of Nov 2020)
+* CloudFront Real-time Log Fields: `All`
 * CloudFront Real-time Log Sampling Rate: `5%`
 
-The [documentation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html) for CloudFront Realtime logs includes a calculation for determining the number of shards needed for Kinesis Streams which will help you estimate the cost of Kinesis. Additionally, when estimating costs for deploying this solution, you should also account for costs associated with AWS Lambda and Amazon Timestream. Each CloudFront realtime log record that is ingested into the solution's Kinesis Data Stream is consumed by AWS Lambda and ingested into Amazon Timestream. To reduce costs it is recommended to configure a low CloudFront Realtime log sampling rate which is configurable as a parameter in the CloudFormation template (defaults to 5%). It is also recommended to reduce any unnecessary fields from the realtime log configuration to reduce the amount of data that is ingested into the solution. See the section on customizing the solution to modify the fields.
+### Uninstall
+
+* Delete the Cloud Formation Stack
+* Delete the Sam S3 bucket (Bucket name is prefixed with CloudFormation stack name)
+* Delete the git repository
+
+* Uninstall the sam cli
+```bash
+sudo rm $(which sam)
+sudo rm -rf /usr/local/aws-sam-cli
+```
+
+* Uninstall docker
+```bash
+sudo docker system prune --all -f
+sudo yum remove docker-ce docker-ce-cli containerd.io
+sudo rm -rf /var/lib/docker
+sudo rm -rf /var/lib/containerd
+```
+
+AWS Reference Documentation
+- [SAM Cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-getting-started.html)
+- [Timestream](https://docs.aws.amazon.com/timestream/latest/developerguide/what-is-timestream.html)
+- [Kinesis](https://docs.aws.amazon.com/streams/latest/dev/introduction.html)
+- [CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html)
+- [Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html)
+- [Dynamo DB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html)
+- [SNS](https://docs.aws.amazon.com/sns/latest/dg/welcome.html)
