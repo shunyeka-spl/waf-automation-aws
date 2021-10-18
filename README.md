@@ -40,9 +40,10 @@ This solution is deployed using the AWS Serverless Application Model (AWS SAM). 
 
 ### Installing Pre-requisites
 
+- [Docker cli](https://docs.docker.com/engine/install/rhel/)
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
 
-### [Installing Docker]()
+### [Installing Docker](https://docs.docker.com/engine/install/rhel/)
 Note that Docker is also required to use AWS SAM CLI and is included in the above steps. After installation, make sure Docker is running on your local machine before proceeding.
 
 ```bash
