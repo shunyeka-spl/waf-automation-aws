@@ -1,11 +1,11 @@
-# CloudFront Real-Time Monitoring Solution
+# CloudFront Real-Time Monitoring, Analysis, Action Solution
 [CloudFront real-time logs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html) enables developers to analyze, monitor, and take action based on content delivery performance. This project provides a serverless solution for processing these logs in real-time to generate custom metrics for real-time logs, analysis, action and alerting. This solution may be especially useful to customers want to analyze CloudFront, Waf performance in real-time. This solution is also useful for customers that want to analyze CloudFront performance metrics with more granularity (i.e. per country, URI, edge location and more) that are metrics aggregated for the entire Distribution.
 
 This project provides a serverless solution to begin processing CloudFront real-time log data in seconds and makes it easy to manage without the need to provision complex infrastructure. The solution creates a CloudFront Real-Time Logs configuration that you can attach to your existing CloudFront Distribution(s). Once attached to your distribution, the log configuration begins sending request log records to a Kinesis Data Stream using a configurable sampling rate. 
 
 The solution deploys AWS 'LogProcessor' Lambda to process the real-time logs from the stream and convert them into time-series records that are ingested into [Amazon Timestream](https://aws.amazon.com/timestream/), a scalable and serverless time-series database. Than 'HostProcessor' Lambda gets invoked. The configuration details like 'host, distribution, threshold, duration' are fetch from Dynamo Db `waf-config` Table. It queries the Timestream Database to find If any Ip is requesting our distribution more than the threshold specified. If Ip is found offending than it is added to Waf IpSet and Dynamo DB `waf-block-ip` Table and a alert email is sent on the specified mail. Entire process is happening Real time. 
 
-#### The Manual touch is required when:
+#### The Manual configuration is required when:
 - To change the configuration details of distribution or host in [waf-config](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#item-explorer?initialTagKey=&maximize=true&table=waf-config) Dynamodb table. 
 - To configure which cloudfront logs will be sent to Timestream DB. [(Attaching CloudFront to Kineses Real time Logs)](https://console.aws.amazon.com/cloudfront/v3/home?region=us-east-1#/logs)
 - WAF Rules should be applied on which Cloudfront. [(Attaching CloudFront to WAF)](https://console.aws.amazon.com/wafv2/homev2/web-acls?region=global)
@@ -163,9 +163,8 @@ confirm_changeset = true
 When Updating application. A Single command to validate, build and deploy sam template. The already made configuration file `samconfig.toml` will be used by default.
 ```bash
 sam validate && sam build --use-container && sam deploy --no-confirm-changeset
-
-# --no-confirm-changeset = skips the promt for approval to deploy changeset
 ```
+> --no-confirm-changeset = skips the promt for approval to deploy changeset
 
 Navigate to the AWS CloudFormation console and review the stack resources that were created for you. 
 
