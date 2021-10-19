@@ -186,13 +186,14 @@ Go to waf-config table - [here](https://console.aws.amazon.com/dynamodbv2/home?r
 
 > __host__: The domain name of the website
 
-> __duration__: For how much time to check for request. The duration to check for request count.
+> __duration__: For how much time to check for request. The duration to check for request count. Maximum duration can be 2hr after that timestream logs automatically gets deleted (Timestream Logs Retention Period can be increased from console). 
+> eg: `15s`, `15m`, `1hr`
 
 > __threshold__: integer, The Number of requests that are allowed in a specific duration, If requests reaches more than threshold block that IP.
 
 5. An Example in json. You can also directly upload a json object to Dynamo DB.
 
-![Dynamo DB Values In Json](./Image/ddb_json.png)
+![Dynamo DB Values In Json](./Images/ddb_json.png)
 
 ```json
 {
