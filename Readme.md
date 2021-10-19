@@ -172,12 +172,15 @@ Go to waf-config table - [here](https://console.aws.amazon.com/dynamodbv2/home?r
 
 1. Click on View Items
 
-* Then Click on Create Item
+2. Then Click on Create Item
 
-* Add `distribution`, `host`, `duration`, `threshold` Column values.
+3. Add `distribution`, `host`, `duration`, `threshold` Column values.
+
 ![Adding an Item In Dynamo DB](./Images/add_values.png)
-* Finally it should look like this
-![Sample Dynamo DB Values](.Images/ddb_create_item.png)
+
+4. Finally it should look like this
+
+![Sample Dynamo DB Values](./Images/ddb_create_item.png)
 
 > __distribution__: Contains the Cloud Front Distribution name
 
