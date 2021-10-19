@@ -165,10 +165,10 @@ sam validate && sam build --use-container && sam deploy --no-confirm-changeset
 ```
 > --no-confirm-changeset = skips the promt for approval to deploy changeset
 
-### Add values to Dynamo DB
+### Add values to Dynamo DB Table
 
-<details><summary>Expand this to view how to add values to Dynamo DB Table `waf-config`</summary>
-Go to waf-config table - [here](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#table?initialTagKey=&name=waf-config)**
+<details><summary>**Expand this to view how to add values to Dynamo DB Table** `waf-config`</summary>
+**Go to waf-config table** - [here](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#table?initialTagKey=&name=waf-config)
 
 1. Click on View Items
 
