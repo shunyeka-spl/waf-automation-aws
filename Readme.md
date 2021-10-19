@@ -184,11 +184,24 @@ Go to waf-config table - [here](https://console.aws.amazon.com/dynamodbv2/home?r
 
 > __distribution__: Contains the Cloud Front Distribution name
 
-> __host__: the domain name or name of website
+> __host__: The domain name of the website
 
-> __duration__: for how much time to check for request
+> __duration__: For how much time to check for request. The duration to check for request count.
 
 > __threshold__: integer, The Number of requests that are allowed in a specific duration, If requests reaches more than threshold block that IP.
+
+5. An Example in json. You can also directly upload a json object to Dynamo DB.
+
+![Dynamo DB Values In Json](./Image/ddb_json.png)
+
+```json
+{
+ "distribution": "dook605908xyx.cloudfront.net",
+ "host": "waftest1.ccrt.us",
+ "threshold": "30",
+ "duration": "30s"
+}
+```
 
 </details>
 
