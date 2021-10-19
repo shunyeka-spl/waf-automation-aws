@@ -122,7 +122,7 @@ def update_waf_ipset(ipset_name: str, ipset_id: str, ips_to_be_blocked: Set[str]
             LockToken=lock_token
         )
     except waf_client.exceptions.WAFOptimisticLockException as e:
-        logger.error(e)
+        logger.exception(e)
         if retry > 0:
             logger.info("Retrying Function Update Waf IpSet: %d", retry)
             return update_waf_ipset(ipset_name, ipset_id, ips_to_be_blocked, host_config, ip_type, retry=retry-1)
@@ -191,7 +191,7 @@ def process_host(header: str, host: str, duration: str, threshold: int, offendin
     except Exception as err:
         logger.exception("ERROR IN TIMESTREAM QUERY") # Column_info: {column_info}, Row: {row} Threshold: {threshold}, Host: {host}")
         traceback.print_exc()
-        raise Exception(f"Exception while running query: {err}")
+        raise
     else:
         # logger.info("TimeStream Query Success")
         return offending_ips
@@ -286,6 +286,7 @@ def lambda_handler(event: str, context) -> None:
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error("%r generated an exception: %s", processed, exc)
                 traceback.print_exc()
+                raise 
             else:
                 logger.info("%s query status  %s", processed, data)
 
@@ -300,9 +301,9 @@ def lambda_handler(event: str, context) -> None:
             except Exception as exc: # pylint: disable=broad-except
                 logger.error("%r generated an exception: %s", processed, exc)
                 traceback.print_exc()
+                raise
             else:
                 logger.debug("%r status  %s", processed, data)
                 # logger.info("Updated IPSet %s with %d IP's", ip_details["ipset_name"], len(data))
                 logger.info('Blocked Ips: %s', str(data))
-
 

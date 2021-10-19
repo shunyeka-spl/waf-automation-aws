@@ -56,7 +56,7 @@ sudo systemctl enable docker
 
 ### [Install Sam Cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install-linux.html#serverless-sam-cli-install-linux-sam-cli)
 
-Installation for Linux x86_64 architecture
+Sam cli Installation for Linux x86_64 architecture
 
 ```bash
 curl -L https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip -o ./aws-sam-cli-linux-x86_64.zip
@@ -108,14 +108,13 @@ Configuring SAM deploy
         Stack Name [waf-automation-2]: waf-stack              # Cloud Formation Stack Name
         AWS Region [us-east-1]:                               # Press enter to choose the default value. This Template will only work in Region us-east-1
         Parameter KinesisStreamShards [2]: 1                  # Number of Kineses Shards that will Transfer Logs to Timestream ( 1 Shard can Transfer 1K Messages in 1 sec approx)
-        Parameter RealtimeLogsSamplingPercentage [2]: 5       # A Single GET request can make 100 or more logs. So, we generally set it between 1-5 %
-        Parameter EmailAddress [email@gmail.com]: hitesh@shunyeka.com        # Email Address to send IP Blocked Alerts 
+        Parameter RealtimeLogsSamplingPercentage [2]: 5       # A Single GET request can make 100 or more logs. So, we generally set SamplingRate between 1-5 % based on the number of request.
+        Parameter EmailAddress [email@gmail.com]: email@gmail.com        # Email Address to send IP Blocked Alerts
         Confirm changes before deploy [Y/n]: Y                # Shows you resources changes to be deployed and require a 'Y' to initiate deploy
         Allow SAM CLI IAM role creation [Y/n]: Y              # SAM needs permission to be able to create roles to connect to the resources in your template
         Save arguments to configuration file [Y/n]: Y         # Saves the above arguments in the configuration file
         SAM configuration file [samconfig.toml]:              # Press Enter to choose the default. sam cli always looks for samconfig.toml file when we do sam deploy, custom conf file can be passed by using --config-file flag
         SAM configuration environment [default]:              # Press Enter to choose the default. Which profile to use to deploy the sam template
-
         Looking for resources needed for deployment: Found!
 
                 Managed S3 bucket: aws-sam-cli-managed-default-samclisourcebucket-1c344o97df3f8
@@ -165,6 +164,32 @@ When Updating application. A Single command to validate, build and deploy sam te
 sam validate && sam build --use-container && sam deploy --no-confirm-changeset
 ```
 > --no-confirm-changeset = skips the promt for approval to deploy changeset
+
+### Add values to Dynamo DB
+
+<details><summary>Expand this to view how to add values to Dynamo DB Table `waf-config`
+Go to waf-config table - [here](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#table?initialTagKey=&name=waf-config)**
+
+1. Click on View Items
+
+* Then Click on Create Item
+   
+* Add distribution, host, duration, threshold values.
+[Adding an Item In Dynamo DB](./Images/add_values.png)
+* Finally it should look like this
+[Sample Dynamo DB Values](.Images/ddb_create_item.png)
+
+> __distribution__: Contains the Cloud Front Distribution name
+
+> __host__: the domain name or name of website
+
+> __duration__: for how much time to check for request
+
+> __threshold__: integer, The Number of requests that are allowed in a specific duration.
+
+
+
+
 
 Navigate to the AWS CloudFormation console and review the stack resources that were created for you. 
 
