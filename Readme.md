@@ -167,7 +167,7 @@ sam validate && sam build --use-container && sam deploy --no-confirm-changeset
 
 ### Add values to Dynamo DB Table
 
-<details><summary>**Expand this to view how to add values to Dynamo DB Table** `waf-config`</summary>
+<details><summary><b>Expand this to view how to add values to Dynamo DB Table</b> `waf-config`</summary>
 **Go to waf-config table** - [here](https://console.aws.amazon.com/dynamodbv2/home?region=us-east-1#table?initialTagKey=&name=waf-config)
 
 1. Click on View Items
