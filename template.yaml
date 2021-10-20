@@ -221,7 +221,7 @@ Resources:
       - AttributeName: ip
         KeyType: RANGE
       ProvisionedThroughput:
-        ReadCapacityUnits: 1
+        ReadCapacityUnits: 5
         WriteCapacityUnits: 1
       TableName: "waf-block-ip-history"
 
