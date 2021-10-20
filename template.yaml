@@ -333,7 +333,7 @@ Resources:
     Properties:
       DatabaseName: !Ref CloudFrontLogsTimeSeriesDb
       RetentionProperties:
-        MemoryStoreRetentionPeriodInHours: 2
+        MemoryStoreRetentionPeriodInHours: 7
         MagneticStoreRetentionPeriodInDays: 1
 
   SNSWAFIpBlockNotifiaction:

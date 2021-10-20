@@ -213,6 +213,17 @@ Navigate to the AWS CloudFormation console and review the stack resources that w
 
 When the solution is deployed, it creates a new CloudFront Realtime Logs Configuration but it does not automatically associate this log configuration with your CloudFront Distribution(s). You can attach this configuration to your CloudFront Distribution by navigating to the CloudFront Realtime Logs [console](https://console.aws.amazon.com/cloudfront/v2/home#/logs/realtime), and associating the configuration with your distribution using the **Attach to distribution** option. Once the real-time configuration is attached to your distribution with a status of **Deployed**, then you can then begin analyzing your metrics in Timestream.
 
+## Attach the CloudFront Distribution(s) to WAF Web Acl
+
+When the solution is deployed and WAF Web Acl is successfully created, We need to attach Cloud Front Distribution with WAF WebAcl. 
+
+1. Navigate to WAF WebAcl, Go in WebACL-Cloudfront
+2. Click on 'Associated AWS Resources'
+3. Then Click on 'Add AWS Resources' and Select the Cloudfront you want to add.
+4. Finally it should look like this.
+
+![WebACL Associated with CloudFront](./Images/WebAcl_cloudfront.png)
+
 ## Query your metrics with Amazon Timestream
 
 Once the solution is deployed and you have attached your distribution to the Real-time log configuration, you should be able to start querying your metrics in Amazon Timestream. Navigate to [Amazon Timestream](https://console.aws.amazon.com/timestream/home) query editor, or use the query editor link provided in the CloudFormation Outputs.
@@ -235,6 +246,22 @@ DESC
 The query should return results similar to below:
 
 ![Timestream](./Images/timestream_rows.png "Timestream Query Results")
+
+## Logs Retention Period
+
+**Retention Period:** The amount of time Logs will be stored in the CloudWatch, After that time Logs will be automatically Deleted permanently.
+
+Retention Period of different AWS Services used in this solution.
+
+* LogProcessor Logs: 30 Days
+* HostProcessor Logs: 30 Days
+* CloudFront Realtime Logs: Enabled
+* Kineses Shards Data: 1 Day(s)
+* Timestream Table Data: 
+  * Memory Store Data: 7 Hours
+  * Disk Storage: 1 Day(s)
+
+> **Note:** The Logs Retention Period can be increased or decreased based on requirement.
 
 ## Customize the solution (optional)
 
