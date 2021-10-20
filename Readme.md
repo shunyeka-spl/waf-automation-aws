@@ -260,6 +260,10 @@ Retention Period of different AWS Services used in this solution.
 * Timestream Table Data: 
   * Memory Store Data: 7 Hours
   * Disk Storage: 1 Day(s)
+* WAF Logs:
+  * Sampling Requests: 3 Hours (Managed by AWS, Free of charge)
+  * Event Metrics: Enabled (Can be seen in CloudWatch Metrics for every Rule)
+  * Logs: Disabled  (Need to configure AWS Kineses Firehose and S3 bucket)
 
 > **Note:** The Logs Retention Period can be increased or decreased based on requirement.
 
