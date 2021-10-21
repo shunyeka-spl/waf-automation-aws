@@ -247,6 +247,17 @@ The query should return results similar to below:
 
 ![Timestream](./Images/timestream_rows.png "Timestream Query Results")
 
+## Performance Optimization
+
+This solution is build using AWS Mangaed serverless services. So, most of the management part is automatically done by AWS. We have to define the Maximum, Mininum, Concurrency of Services.
+
+- When the requests on Cloudfront are high you can increase the Number of Shards in Kineses(one shard in kineses can transfer 1MiB/sec ~ 1000 logs/sec).
+- You can increase the read capacity of DynamoDB Tables (waf-config and waf-ip-block-history). As more `get_item()` requests will be made to dynamodb from Lambda Functions.
+- Lambda Functions are serverless they are managed by AWS.
+- TimeStream DB is highly scalable managed database giving milisecond latency for queries where time duration is less than 7 hrs(NOTE: 7hrs is InMemory retention period set for data,). For queries where duration is more than 7 hrs it can take some seconds to give output. You can query the logs for maximum duration of 1 Day.
+
+> **Note:** All the above values can be increased or decreased based on requirement.
+
 ## Logs Retention Period
 
 **Retention Period:** The amount of time Logs will be stored in the CloudWatch, After that time Logs will be automatically Deleted permanently.
@@ -258,7 +269,7 @@ Retention Period of different AWS Services used in this solution.
 * CloudFront Realtime Logs: Enabled
 * Kineses Shards Data: 1 Day(s)
 * Timestream Table Data: 
-  * Memory Store Data: 7 Hours
+  * InMemory Storage: 7 Hours
   * Disk Storage: 1 Day(s)
 * WAF Logs:
   * Sampling Requests: 3 Hours (Managed by AWS, Free of charge)
