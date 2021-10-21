@@ -252,7 +252,7 @@ The query should return results similar to below:
 This solution is build using AWS Mangaed serverless services. So, most of the management part is automatically done by AWS. We have to define the Maximum, Mininum, Concurrency of Services.
 
 - When the requests on Cloudfront are high you can increase the Number of Shards in Kineses(one shard in kineses can transfer 1MiB/sec ~ 1000 logs/sec).
-- You can increase the read capacity of DynamoDB Tables (waf-config and waf-ip-block-history). As more `get_item()` requests will be made to dynamodb from Lambda Functions.
+- When the load is high, you can increase the read capacity of DynamoDB Tables (waf-config and waf-ip-block-history). As more `get_item()` requests will be made to dynamodb from Lambda Functions. Default Read is 5 and Write is 1 for both tables.
 - Lambda Functions are serverless they are managed by AWS.
 - TimeStream DB is highly scalable managed database giving milisecond latency for queries where time duration is less than 7 hrs(NOTE: 7hrs is InMemory retention period set for data,). For queries where duration is more than 7 hrs it can take some seconds to give output. You can query the logs for maximum duration of 1 Day.
 
