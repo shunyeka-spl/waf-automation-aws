@@ -61,8 +61,8 @@ def parse_headers(headers, header_type):
     return output
 
 def write_batch_timestream(records, record_counter):
-    print("Printing records")
-    print(records)
+    # print("Printing records")
+    # print(records)
     print("Printing record_counter",record_counter)
     # print()
     try:
@@ -79,20 +79,20 @@ def lambda_handler(event, context):
     
     records = []
     record_counter = 0
-    print("Printing Events")
-    print(event)
+    # print("Printing Events")
+    # print(event)
     unique_cs_hosts=set()
  
     for record in event['Records']:
     
         # Extracting the record data in bytes and base64 decoding it
         payload_in_bytes = base64.b64decode(record['kinesis']['data'])
-        print("Printing payload_in_bytes")
-        print(payload_in_bytes)
+        # print("Printing payload_in_bytes")
+        # print(payload_in_bytes)
         # Converting the bytes payload to string
         payload = "".join(map(chr, payload_in_bytes))
-        print("Printing payload")
-        print(payload) 
+        # print("Printing payload")
+        # print(payload) 
         # dictionary where all the field and record value pairing will end up
         payload_dict = {}
         
@@ -129,7 +129,7 @@ def lambda_handler(event, context):
             dimensions_list.append(
                 { 'Name': field_name, 'Value': str(value) }
             )   
-        print(payload_dict)
+        # print(payload_dict)
         host_details = f"{payload_dict['cs-host']},{payload_dict['x-host-header']}"
         unique_cs_hosts.add(host_details)
 
@@ -143,8 +143,8 @@ def lambda_handler(event, context):
             'TimeUnit': 'SECONDS'
         }
         records.append(record)
-        print("Printing record inside handler")
-        print(record)
+        # print("Printing record inside handler")
+        # print(record)
         record_counter = record_counter + 1
 
         if(len(records) == 100): 
@@ -155,7 +155,7 @@ def lambda_handler(event, context):
         write_batch_timestream(records, record_counter)
     
     for host_details in unique_cs_hosts:
-        print("Invoke Host Processor",host_details)
+        # print("Invoke Host Processor",host_details)
         invoke_host_processor(host_details)
     
     
