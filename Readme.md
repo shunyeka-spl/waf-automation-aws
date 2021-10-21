@@ -253,7 +253,7 @@ This solution is build using AWS Mangaed serverless services. So, most of the ma
 
 - When the requests on Cloudfront are high you can increase the Number of Shards in Kineses(one shard in kineses can transfer 1MiB/sec ~ 1000 logs/sec).
 - When the load is high, you can increase the read capacity of DynamoDB Tables (waf-config and waf-ip-block-history). As more `get_item()` requests will be made to dynamodb from Lambda Functions. Default Read is 5 and Write is 1 for both tables.
-- Lambda Functions are serverless they are managed by AWS.
+- Lambda Functions are serverless they are managed by AWS. Default Concurrency is 1000.
 - TimeStream DB is highly scalable managed database giving milisecond latency for queries where time duration is less than 7 hrs(NOTE: 7hrs is InMemory retention period set for data,). For queries where duration is more than 7 hrs it can take some seconds to give output. You can query the logs for maximum duration of 1 Day.
 
 > **Note:** All the above values can be increased or decreased based on requirement.
