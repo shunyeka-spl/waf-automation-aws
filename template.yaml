@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: This solution deploys a solution for converting CloudFront Realtime Logs into time-series metrics. It deploys an Amazon Kinesis Data Stream, AWS Lambda Function and Amazon Timestream Database.
+Description: This solution deploys a solution for converting CloudFront Realtime Logs into time-series metrics then processing the metrics to find offending IP's to block. It deploys an Amazon Kinesis Data Stream, AWS Lambda Function and Amazon Timestream Database, AWS Web Application Firewall, SNS Topic, Dynamo DB.
 Parameters:
   KinesisStreamShards:
     Description: Number of shards to provision for the CloudFront Real Time Logs Kinesis Data Stream
@@ -9,9 +9,14 @@ Parameters:
   RealtimeLogsSamplingPercentage:
     Description: The sampling rate (expressed as integer or float value between 1-100) to use for the Real-time Logs Configuration. This value will be set in the Real-time Logs Configuration. Defaults to 5 (5%) sampling rate.
     Type: Number
-    Default: 5
+    Default: 4
     MinValue: 1
     MaxValue: 100
+  EmailAddress:
+    Type: String
+    Description: "Email address to send Alerts of Blocked IP's"
+    Default: ''
+
 Resources:
   LogProcessor:
     Type: AWS::Serverless::Function
@@ -34,6 +39,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref RealtimeLogsTable
+          HOST_FN_NAME: !Ref HostProcessor
       Policies:
         - Version: 2012-10-17
           Statement:
@@ -69,6 +75,11 @@ Resources:
                 - timestream:DescribeEndpoints
               Resource:
                 - '*'
+            - Effect: Allow
+              Action: 
+                - lambda:InvokeFunction
+              Resource: 
+                - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:*'
 
   CustomResourceHelper:
     Type: AWS::Serverless::Function
@@ -98,7 +109,122 @@ Resources:
                 - xray:GetSamplingTargets
               Resource: 
                 - '*'
-  
+
+  HostProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: host_processor.lambda_handler
+      Runtime: python3.8
+      CodeUri: ./HostProcessor
+      FunctionName: HostProcessor
+      Description: Lambda to Query TimestreamDB and Block IP when reached threshold
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          LOG_LVL: '20'
+          SNS_ARN: !Ref SNSWAFIpBlockNotifiaction
+          THREAD_COUNT: 2
+          CONFIGURATION_DYNAMODB: !Ref WAFConfigTable
+          BLOCKLIST_DYNAMODB: !Ref WAFBlockHistoryTable
+          TIMESTREAM_DB_NAME: !Ref CloudFrontLogsTimeSeriesDb
+          TIMESTREAM_TABLE_NAME: !GetAtt RealtimeLogsTable.Name
+          IPV4SET_DETAILS: !Ref WAFIpSetIpV4
+          IPV6SET_DETAILS: !Ref WAFIpSetIpV6
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource:
+                - !Ref SNSWAFIpBlockNotifiaction
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutDestination
+                - logs:PutLogEvents
+              Resource:
+                - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*'
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+                - xray:GetSamplingRules
+                - xray:GetSamplingTargets
+              Resource:
+                - '*'
+            - Effect: Allow
+              Action: 
+                - timestream:DescribeEndpoints
+              Resource: 
+                - '*'
+            - Effect: Allow
+              Action:
+                - timestream:Select
+              Resource:
+                - !Sub 'arn:${AWS::Partition}:timestream:${AWS::Region}:${AWS::AccountId}:database/${CloudFrontLogsTimeSeriesDb}/table/${RealtimeLogsTable.Name}'
+            - Effect: Allow
+              Action:
+                - wafv2:GetIPSet
+                - wafv2:UpdateIPSet
+              Resource: 
+                - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:global/ipset/*/${WAFIpSetIpV4.Id}'
+                - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:global/ipset/*/${WAFIpSetIpV6.Id}'
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource:
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WAFConfigTable}'
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:BatchWriteItem
+              Resource: 
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${WAFBlockHistoryTable}'
+
+  WAFConfigTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: distribution
+        AttributeType: S
+      - AttributeName: host
+        AttributeType: S
+      - AttributeName: duration
+        AttributeType: S
+      - AttributeName: threshold
+        AttributeType: N
+      KeySchema:
+      - AttributeName: distribution
+        KeyType: HASH
+      - AttributeName: host
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 1
+      TableName: "waf-config"
+
+  WAFBlockHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: distribution
+        AttributeType: S
+      - AttributeName: ip
+        AttributeType: S
+      KeySchema:
+      - AttributeName: distribution
+        KeyType: HASH
+      - AttributeName: ip
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 1
+      TableName: "waf-block-ip-history"
+
   CloudFrontRealtimeLogConfig:
     Type: AWS::CloudFront::RealtimeLogConfig
     Properties:
@@ -178,13 +304,19 @@ Resources:
                   - kinesis:DescribeStream
                 Resource: 
                   - !GetAtt CloudFrontLogStream.Arn    
-  
+
   LogProcessorLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/aws/lambda/${LogProcessor}'
       RetentionInDays: 30
- 
+
+  HostProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${HostProcessor}'
+      RetentionInDays: 30
+
   CloudFrontLogStream:
     Type: AWS::Kinesis::Stream
     Properties:
@@ -192,18 +324,117 @@ Resources:
       StreamEncryption:
         EncryptionType: KMS
         KeyId: alias/aws/kinesis
-  
+
   CloudFrontLogsTimeSeriesDb:
     Type: AWS::Timestream::Database
-  
+
   RealtimeLogsTable:
     Type: AWS::Timestream::Table
     Properties:
       DatabaseName: !Ref CloudFrontLogsTimeSeriesDb
       RetentionProperties:
-        MemoryStoreRetentionPeriodInHours: 24
-        MagneticStoreRetentionPeriodInDays: 7
-          
+        MemoryStoreRetentionPeriodInHours: 7
+        MagneticStoreRetentionPeriodInDays: 1
+
+  SNSWAFIpBlockNotifiaction:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Waf-Ip-Block-Notification"
+      Subscription:
+        - Endpoint: !Ref EmailAddress
+          Protocol: 'email'
+
+  # WAF Resources, Will only work in region us-east-1
+  WAFIpSetIpV4:
+    Type: 'AWS::WAFv2::IPSet'
+    Properties:
+      Description: CloudFront blocked IpV4 addresses
+      Name: IPV4SET
+      Scope: CLOUDFRONT
+      IPAddressVersion: IPV4
+      Addresses:
+        - 10.0.0.0/32   # A dummy IPV4 Private Ip
+
+  WAFIpSetIpV6:
+    Type: 'AWS::WAFv2::IPSet'
+    Properties:
+      Description: CloudFront blocked IpV6 addresses
+      Name: IPV6SET
+      Scope: CLOUDFRONT
+      IPAddressVersion: IPV6
+      Addresses:
+        - fd4b:9821:be17:8c1e:0000:0000:0000:0000/128    # A dummy IPV6 Private Ip
+
+  WAFWebACL:
+    DependsOn:
+      - WAFIpSetIpV4
+      - WAFIpSetIpV6
+    Type: 'AWS::WAFv2::WebACL'
+    Properties:
+      Name: WebACL-Cloudfront
+      Scope: CLOUDFRONT
+      Description: Blocks IP When requests are greater than threshold
+      DefaultAction:
+        Allow: {}  # allow all
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: WebACLMetricForCloudfront
+      Rules:
+        - Name: SourceIPv4
+          Priority: 0
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV4.Arn
+          Action:
+            Block: {}   # Block all
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: SourceIPv4
+        - Name: XXFIPv4
+          Priority: 1
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV4.Arn
+              IPSetForwardedIPConfig:
+                HeaderName: x-forwarded-for
+                FallbackBehavior: MATCH
+                Position: ANY
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: XXFIPv4
+        - Name: SourceIPv6
+          Priority: 2
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV6.Arn
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: SourceIPv6
+        - Name: XFFIPv6
+          Priority: 3
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt WAFIpSetIpV6.Arn
+              IPSetForwardedIPConfig:
+                HeaderName: x-forwarded-for
+                FallbackBehavior: MATCH
+                Position: ANY
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: XFFIPv6
+
+
 Outputs:
   CloudWatchMetricsUrl:
     Description: Link to the Amazon CloudWatch namespace where the custom metrics are published by the solution.
@@ -211,7 +442,9 @@ Outputs:
   LogProcessorLogGroup:
     Description: Link to the CloudWatch Log Group for the log processor lambda function where logs are delivered
     Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:log-groups/log-group/$252Faws$252Flambda$252F${LogProcessor}'
+  HostProcessorLogGroup:
+    Description: Link to the CloudWatch Log Group for the host processor lambda function where logs are delivered
+    Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:log-groups/log-group/$252Faws$252Flambda$252F${HostProcessor}'
   TimestreamQueryEditor:
     Description: Link to the Amazon Timestream query editor for the database that was deployed by the solution
     Value: !Sub 'https://console.aws.amazon.com/timestream/home?region=${AWS::Region}#query-editor:/Database/${CloudFrontLogsTimeSeriesDb}'
-    
