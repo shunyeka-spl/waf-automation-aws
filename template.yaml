@@ -193,10 +193,6 @@ Resources:
         AttributeType: S
       - AttributeName: host
         AttributeType: S
-      - AttributeName: duration
-        AttributeType: S
-      - AttributeName: threshold
-        AttributeType: N
       KeySchema:
       - AttributeName: distribution
         KeyType: HASH
