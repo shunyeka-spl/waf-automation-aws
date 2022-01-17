@@ -276,23 +276,19 @@ def lambda_handler(event: str, context) -> None:
     }
     logger.info(f"{host_config} from table {WAF_DDB_CONFIG_TABLE}")
 
-    # headers = ("x_forwarded_for", "c_ip")
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
-    #     future_to_project = {executor.submit(process_host, header, host, duration, threshold, offending_ips_info): header for header in headers}
-    #     for future in concurrent.futures.as_completed(future_to_project):
-    #         processed = future_to_project[future]
-    #         try:
-    #             data = future.result()
-    #         except Exception as exc:  # pylint: disable=broad-except
-    #             logger.error("%r generated an exception: %s", processed, exc)
-    #             traceback.print_exc()
-    #             raise 
-    #         else:
-    #             logger.info("%s query status  %s", processed, data)
-
-    header = "x_forwarded_for"
-    offending_ips_info = process_host(header, host, duration, threshold, offending_ips_info)
-
+    headers = ("x_forwarded_for", "c_ip")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
+        future_to_project = {executor.submit(process_host, header, host, duration, threshold, offending_ips_info): header for header in headers}
+        for future in concurrent.futures.as_completed(future_to_project):
+            processed = future_to_project[future]
+            try:
+                data = future.result()
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.error("%r generated an exception: %s", processed, exc)
+                traceback.print_exc()
+                raise 
+            else:
+                logger.info("%s query status  %s", processed, data)
 
     logger.info(f"offending_ips_info: {offending_ips_info}")
 

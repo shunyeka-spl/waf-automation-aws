@@ -67,7 +67,7 @@ sam --version
 
 ### Clone the repository
 ```
-git clone https://github.com/shunyeka-spl/waf-automation-aws.git
+git clone https://github.com/<organization-name>/waf-automation-aws.git
 ```
 
 
