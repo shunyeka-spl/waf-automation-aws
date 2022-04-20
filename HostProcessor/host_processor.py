@@ -235,6 +235,8 @@ def get_config(host: str, distribution: str) -> Tuple[str, int]:
         }
     )
     logger.debug(f"Configurations details from Dynamo db: {response}")
+    if not response or not response["item"]:
+        return None, None
     return response['Item']['duration'], int(response['Item']['threshold'])
 
 def check_ip(ips: Set[str], ip_version: str) -> bool:
@@ -268,6 +270,9 @@ def lambda_handler(event: str, context) -> None:
     host, distribution = event['host_details'].split(',')
 
     duration, threshold = get_config(host, distribution)
+    if not duration or not threshold:
+        logger.info(f"no configuration for {host} and {distribution} found in table the {WAF_DDB_CONFIG_TABLE}")
+        return 
     host_config: HostDetails = {
         "duration": duration,
         "threshold": threshold,
