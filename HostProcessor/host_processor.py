@@ -235,7 +235,7 @@ def get_config(host: str, distribution: str) -> Tuple[str, int]:
         }
     )
     logger.debug(f"Configurations details from Dynamo db: {response}")
-    if not response or not response["item"]:
+    if not response.get('Item'):
         return None, None
     return response['Item']['duration'], int(response['Item']['threshold'])
 
